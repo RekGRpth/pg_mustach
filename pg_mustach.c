@@ -13,39 +13,42 @@ extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 
 PG_MODULE_MAGIC;
 
-
 EXTENSION(json2mustach) {
+    char *file;
     char *json;
+    char *output_data;
     char *template;
+    FILE *out;
+    size_t output_len;
     struct json_object *object;
+    text *output;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errmsg("json is null!")));
     if (PG_ARGISNULL(1)) ereport(ERROR, (errmsg("template is null!")));
     json = TextDatumGetCString(PG_GETARG_DATUM(0));
     template = TextDatumGetCString(PG_GETARG_DATUM(1));
     if (!(object = json_tokener_parse(json))) ereport(ERROR, (errmsg("!json_tokener_parse")));
     switch (PG_NARGS()) {
-        case 3: {
-            char *file;
-            FILE *out;
+        case 2: if (!(out = open_memstream(&output_data, &output_len))) ereport(ERROR, (errmsg("!open_memstream"))); break;
+        case 3:
             if (PG_ARGISNULL(2)) ereport(ERROR, (errmsg("file is null!")));
             file = TextDatumGetCString(PG_GETARG_DATUM(2));
             if (!(out = fopen(file, "wb"))) ereport(ERROR, (errmsg("!fopen")));
             pfree(file);
-            if (fmustach_json_c(template, object, out)) ereport(ERROR, (errmsg("fmustach_json_c")));
-            PG_RETURN_BOOL(true);
-        } break;
-        case 2: {
-            char *result;
-            size_t size;
-            text *res;
-            if (mustach_json_c(template, object, &result, &size)) ereport(ERROR, (errmsg("mustach_json_c")));
-            res = cstring_to_text_with_len(result, size);
-            free(result);
-            PG_RETURN_TEXT_P(res);
-        } break;
-        default: ereport(ERROR, (errmsg("PG_NARGS must be 2 or 3")));
+            break;
+        default: ereport(ERROR, (errmsg("expect be 2 or 3 args")));
     }
+    if (fmustach_json_c(template, object, out)) ereport(ERROR, (errmsg("fmustach_json_c")));
     pfree(json);
     pfree(template);
     if (!json_object_put(object)) ereport(ERROR, (errmsg("!json_object_put")));
+    switch (PG_NARGS()) {
+        case 2:
+            fclose(out);
+            output = cstring_to_text_with_len(output_data, output_len);
+            free(output_data);
+            PG_RETURN_TEXT_P(output);
+            break;
+        case 3: PG_RETURN_BOOL(true); break;
+        default: ereport(ERROR, (errmsg("expect be 2 or 3 args")));
+    }
 }
