@@ -1,13 +1,18 @@
 #include <postgres.h>
 
 #include <catalog/pg_type.h>
-#include <utils/builtins.h>
-
-#include <mustach-json-c.h>
+extern text *cstring_to_text(const char *s);
+extern text *cstring_to_text_with_len(const char *s, int len);
+extern char *text_to_cstring(const text *t);
+extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
+#define CStringGetTextDatum(s) PointerGetDatum(cstring_to_text(s))
+#define TextDatumGetCString(d) text_to_cstring((text *) DatumGetPointer(d))
+#include <mustach/mustach-json-c.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
 PG_MODULE_MAGIC;
+
 
 EXTENSION(text2mustach) {
     char *data;
@@ -21,7 +26,7 @@ EXTENSION(text2mustach) {
     data = TextDatumGetCString(PG_GETARG_DATUM(1));
     if (!(tok = json_tokener_new())) ereport(ERROR, (errmsg("!json_tokener_new")));
     if (!(jobj = json_tokener_parse_ex(tok, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json)))) ereport(ERROR, (errmsg("!json_tokener_parse_ex")));
-    if ((jerr = json_tokener_get_error(tok) != json_tokener_success) ereport(ERROR, (errmsg("json_tokener_get_error = %s", json_tokener_error_desc(jerr))));
+    if ((jerr = json_tokener_get_error(tok) != json_tokener_success)) ereport(ERROR, (errmsg("json_tokener_get_error = %s", json_tokener_error_desc(jerr))));
     switch (PG_NARGS()) {
         case 2: {
             char *file;
@@ -36,8 +41,9 @@ EXTENSION(text2mustach) {
         case 3: {
             char *result;
             size_t size;
+            text *res;
             if (mustach_json_c(data, jobj, &result, &size)) ereport(ERROR, (errmsg("mustach_json_c")));
-            text *res = cstring_to_text_with_len(result, size);
+            res = cstring_to_text_with_len(result, size);
             free(result);
             PG_RETURN_TEXT_P(res);
         } break;
