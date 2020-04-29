@@ -28,7 +28,7 @@ EXTENSION(text2mustach) {
     if (!(jobj = json_tokener_parse_ex(tok, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json)))) ereport(ERROR, (errmsg("!json_tokener_parse_ex")));
     if ((jerr = json_tokener_get_error(tok) != json_tokener_success)) ereport(ERROR, (errmsg("json_tokener_get_error = %s", json_tokener_error_desc(jerr))));
     switch (PG_NARGS()) {
-        case 2: {
+        case 3: {
             char *file;
             FILE *out;
             if (PG_ARGISNULL(2)) ereport(ERROR, (errmsg("file is null!")));
@@ -38,7 +38,7 @@ EXTENSION(text2mustach) {
             if (fmustach_json_c(data, jobj, out)) ereport(ERROR, (errmsg("fmustach_json_c")));
             PG_RETURN_BOOL(true);
         } break;
-        case 3: {
+        case 2: {
             char *result;
             size_t size;
             text *res;
