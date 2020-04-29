@@ -14,19 +14,15 @@ extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 PG_MODULE_MAGIC;
 
 
-EXTENSION(text2mustach) {
-    char *data;
-    enum json_tokener_error jerr;
-    struct json_object *jobj;
-    struct json_tokener *tok;
-    text *json;
+EXTENSION(json2mustach) {
+    char *json;
+    char *template;
+    struct json_object *object;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errmsg("json is null!")));
-    if (PG_ARGISNULL(1)) ereport(ERROR, (errmsg("data is null!")));
-    json = DatumGetTextP(PG_GETARG_DATUM(0));
-    data = TextDatumGetCString(PG_GETARG_DATUM(1));
-    if (!(tok = json_tokener_new())) ereport(ERROR, (errmsg("!json_tokener_new")));
-    if (!(jobj = json_tokener_parse_ex(tok, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json)))) ereport(ERROR, (errmsg("!json_tokener_parse_ex")));
-    if ((jerr = json_tokener_get_error(tok) != json_tokener_success)) ereport(ERROR, (errmsg("json_tokener_get_error = %s", json_tokener_error_desc(jerr))));
+    if (PG_ARGISNULL(1)) ereport(ERROR, (errmsg("template is null!")));
+    json = TextDatumGetCString(PG_GETARG_DATUM(0));
+    template = TextDatumGetCString(PG_GETARG_DATUM(1));
+    if (!(object = json_tokener_parse(json))) ereport(ERROR, (errmsg("!json_tokener_parse")));
     switch (PG_NARGS()) {
         case 3: {
             char *file;
@@ -35,20 +31,21 @@ EXTENSION(text2mustach) {
             file = TextDatumGetCString(PG_GETARG_DATUM(2));
             if (!(out = fopen(file, "wb"))) ereport(ERROR, (errmsg("!fopen")));
             pfree(file);
-            if (fmustach_json_c(data, jobj, out)) ereport(ERROR, (errmsg("fmustach_json_c")));
+            if (fmustach_json_c(template, object, out)) ereport(ERROR, (errmsg("fmustach_json_c")));
             PG_RETURN_BOOL(true);
         } break;
         case 2: {
             char *result;
             size_t size;
             text *res;
-            if (mustach_json_c(data, jobj, &result, &size)) ereport(ERROR, (errmsg("mustach_json_c")));
+            if (mustach_json_c(template, object, &result, &size)) ereport(ERROR, (errmsg("mustach_json_c")));
             res = cstring_to_text_with_len(result, size);
             free(result);
             PG_RETURN_TEXT_P(res);
         } break;
         default: ereport(ERROR, (errmsg("PG_NARGS must be 2 or 3")));
     }
-    pfree(data);
-    json_tokener_free(tok);
+    pfree(json);
+    pfree(template);
+    if (!json_object_put(object)) ereport(ERROR, (errmsg("!json_object_put")));
 }
