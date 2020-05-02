@@ -18,6 +18,7 @@ EXTENSION(json2mustach) {
     char *json;
     char *output_data;
     char *template;
+    enum json_tokener_error error;
     FILE *out;
     size_t output_len;
     struct json_object *object;
@@ -26,7 +27,7 @@ EXTENSION(json2mustach) {
     if (PG_ARGISNULL(1)) ereport(ERROR, (errmsg("template is null!")));
     json = TextDatumGetCString(PG_GETARG_DATUM(0));
     template = TextDatumGetCString(PG_GETARG_DATUM(1));
-    if (!(object = json_tokener_parse(json))) ereport(ERROR, (errmsg("!json_tokener_parse")));
+    if (!(object = json_tokener_parse_verbose(json, &error))) ereport(ERROR, (errmsg("!json_tokener_parse and %s", json_tokener_error_desc(error))));
     switch (PG_NARGS()) {
         case 2: if (!(out = open_memstream(&output_data, &output_len))) ereport(ERROR, (errmsg("!open_memstream"))); break;
         case 3:
