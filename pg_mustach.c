@@ -57,9 +57,9 @@ EXTENSION(json2mustach) {
     pfree(json);
     pfree(template);
     if (!json_object_put(object)) ereport(ERROR, (errmsg("!json_object_put")));
+    fclose(out);
     switch (PG_NARGS()) {
         case 2:
-            fclose(out);
             output = cstring_to_text_with_len(output_data, output_len);
             free(output_data);
             PG_RETURN_TEXT_P(output);
