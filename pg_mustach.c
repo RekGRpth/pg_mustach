@@ -52,7 +52,7 @@ EXTENSION(json2mustach) {
         case MUSTACH_ERROR_INVALID_ITF: ereport(ERROR, (errmsg("MUSTACH_ERROR_INVALID_ITF"))); break;
         case MUSTACH_ERROR_ITEM_NOT_FOUND: ereport(ERROR, (errmsg("MUSTACH_ERROR_ITEM_NOT_FOUND"))); break;
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: ereport(ERROR, (errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
-        default: ereport(ERROR, (errmsg("!fmustach_json_c"))); break;
+        default: ereport(ERROR, (errmsg("fmustach_json_c"))); break;
     }
     pfree(json);
     pfree(template);
