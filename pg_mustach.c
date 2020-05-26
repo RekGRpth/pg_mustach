@@ -7,6 +7,7 @@ extern char *text_to_cstring(const text *t);
 extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 #define CStringGetTextDatum(s) PointerGetDatum(cstring_to_text(s))
 #define TextDatumGetCString(d) text_to_cstring((text *) DatumGetPointer(d))
+#include <mustach/mustach.h>
 #include <mustach/mustach-json-c.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
@@ -38,7 +39,21 @@ EXTENSION(json2mustach) {
             break;
         default: ereport(ERROR, (errmsg("expect be 2 or 3 args")));
     }
-    if (fmustach_json_c(template, object, out)) ereport(ERROR, (errmsg("fmustach_json_c")));
+    switch (fmustach_json_c(template, object, out)) {
+        case MUSTACH_OK: break;
+        case MUSTACH_ERROR_SYSTEM: ereport(ERROR, (errmsg("MUSTACH_ERROR_SYSTEM"))); break;
+        case MUSTACH_ERROR_UNEXPECTED_END: ereport(ERROR, (errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
+        case MUSTACH_ERROR_EMPTY_TAG: ereport(ERROR, (errmsg("MUSTACH_ERROR_EMPTY_TAG"))); break;
+        case MUSTACH_ERROR_TAG_TOO_LONG: ereport(ERROR, (errmsg("MUSTACH_ERROR_TAG_TOO_LONG"))); break;
+        case MUSTACH_ERROR_BAD_SEPARATORS: ereport(ERROR, (errmsg("MUSTACH_ERROR_BAD_SEPARATORS"))); break;
+        case MUSTACH_ERROR_TOO_DEEP: ereport(ERROR, (errmsg("MUSTACH_ERROR_TOO_DEEP"))); break;
+        case MUSTACH_ERROR_CLOSING: ereport(ERROR, (errmsg("MUSTACH_ERROR_CLOSING"))); break;
+        case MUSTACH_ERROR_BAD_UNESCAPE_TAG: ereport(ERROR, (errmsg("MUSTACH_ERROR_BAD_UNESCAPE_TAG"))); break;
+        case MUSTACH_ERROR_INVALID_ITF: ereport(ERROR, (errmsg("MUSTACH_ERROR_INVALID_ITF"))); break;
+        case MUSTACH_ERROR_ITEM_NOT_FOUND: ereport(ERROR, (errmsg("MUSTACH_ERROR_ITEM_NOT_FOUND"))); break;
+        case MUSTACH_ERROR_PARTIAL_NOT_FOUND: ereport(ERROR, (errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
+        default: ereport(ERROR, (errmsg("!fmustach_json_c"))); break;
+    }
     pfree(json);
     pfree(template);
     if (!json_object_put(object)) ereport(ERROR, (errmsg("!json_object_put")));
