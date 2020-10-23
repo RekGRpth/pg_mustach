@@ -1,1 +1,1 @@
-# pg_mustach
+PostgreSQL implementation of mustache templating
