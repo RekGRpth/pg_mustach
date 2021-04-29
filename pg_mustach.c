@@ -48,8 +48,8 @@ extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 PG_MODULE_MAGIC;
 
 EXTENSION(pg_mustach) {
-    char *json;
     char *data;
+    char *json;
     char *template;
     enum json_tokener_error error;
     FILE *file;
