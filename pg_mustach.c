@@ -48,7 +48,6 @@ extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 PG_MODULE_MAGIC;
 
 EXTENSION(pg_mustach) {
-    char *file;
     char *json;
     char *output_data;
     char *template;
@@ -64,12 +63,13 @@ EXTENSION(pg_mustach) {
     if (!(object = json_tokener_parse_verbose(json, &error))) E("!json_tokener_parse and %s", json_tokener_error_desc(error));
     switch (PG_NARGS()) {
         case 2: if (!(out = open_memstream(&output_data, &output_len))) E("!open_memstream"); break;
-        case 3:
+        case 3: {
+            char *file;
             if (PG_ARGISNULL(2)) E("file is null!");
             file = TextDatumGetCString(PG_GETARG_DATUM(2));
             if (!(out = fopen(file, "wb"))) E("!fopen");
             pfree(file);
-            break;
+        } break;
         default: E("expect be 2 or 3 args");
     }
     switch (mustach_json_c_file(template, object, -1, out)) {
