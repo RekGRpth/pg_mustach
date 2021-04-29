@@ -43,6 +43,10 @@ extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 #define N(fmt, ...) ereport(NOTICE, (errmsg(GET_FORMAT(fmt, ##__VA_ARGS__), ##__VA_ARGS__)))
 #define W(fmt, ...) ereport(WARNING, (errmsg(GET_FORMAT(fmt, ##__VA_ARGS__), ##__VA_ARGS__)))
 
+void *pg_mustach_load_cjson(const char *json);
+int pg_mustach_process_cjson(const char *template, void *root, FILE *file);
+void pg_mustach_close_cjson(void *root);
+
 void *pg_mustach_load_json_c(const char *json);
 int pg_mustach_process_json_c(const char *template, void *root, FILE *file);
 void pg_mustach_close_json_c(void *root);
