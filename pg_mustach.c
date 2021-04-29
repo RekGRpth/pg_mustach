@@ -60,4 +60,5 @@ static Datum pg_mustach_json_c(FunctionCallInfo fcinfo, void *(*pg_mustach_load)
 EXTENSION(pg_mustach) { return pg_mustach_json_c(fcinfo, pg_mustach_load_json_c, pg_mustach_process_json_c, pg_mustach_close_json_c); }
 
 EXTENSION(pg_mustach_cjson) { return pg_mustach_json_c(fcinfo, pg_mustach_load_cjson, pg_mustach_process_cjson, pg_mustach_close_cjson); }
+EXTENSION(pg_mustach_jansson) { return pg_mustach_json_c(fcinfo, pg_mustach_load_jansson, pg_mustach_process_jansson, pg_mustach_close_jansson); }
 //EXTENSION(pg_mustach_json_c) { return pg_mustach_json_c(fcinfo, pg_mustach_load_json_c, pg_mustach_process_json_c, pg_mustach_close_json_c); }

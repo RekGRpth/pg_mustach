@@ -47,6 +47,10 @@ void *pg_mustach_load_cjson(const char *json);
 int pg_mustach_process_cjson(const char *template, void *root, FILE *file);
 void pg_mustach_close_cjson(void *root);
 
+void *pg_mustach_load_jansson(const char *json);
+int pg_mustach_process_jansson(const char *template, void *root, FILE *file);
+void pg_mustach_close_jansson(void *root);
+
 void *pg_mustach_load_json_c(const char *json);
 int pg_mustach_process_json_c(const char *template, void *root, FILE *file);
 void pg_mustach_close_json_c(void *root);
