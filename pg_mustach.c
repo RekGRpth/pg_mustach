@@ -99,7 +99,7 @@ EXTENSION(pg_mustach) {
         case MUSTACH_ERROR_INVALID_ITF: E("MUSTACH_ERROR_INVALID_ITF"); break;
         case MUSTACH_ERROR_ITEM_NOT_FOUND: E("MUSTACH_ERROR_ITEM_NOT_FOUND"); break;
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: E("MUSTACH_ERROR_PARTIAL_NOT_FOUND"); break;
-        default: E("mustach_json_c_file"); break;
+        default: E("pg_mustach_process"); break;
     }
     pfree(json);
     pfree(template);
