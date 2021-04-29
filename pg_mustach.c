@@ -8,7 +8,6 @@ extern char *text_to_cstring(const text *t);
 extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 #define CStringGetTextDatum(s) PointerGetDatum(cstring_to_text(s))
 #define TextDatumGetCString(d) text_to_cstring((text *) DatumGetPointer(d))
-#include <mustach/mustach.h>
 #include <mustach/mustach-json-c.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
