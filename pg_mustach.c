@@ -8,7 +8,7 @@ extern char *text_to_cstring(const text *t);
 extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 #define CStringGetTextDatum(s) PointerGetDatum(cstring_to_text(s))
 #define TextDatumGetCString(d) text_to_cstring((text *) DatumGetPointer(d))
-#include <mustach/mustach-cjson.h>
+#include <mustach/mustach-jansson.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
@@ -47,17 +47,18 @@ extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
 PG_MODULE_MAGIC;
 
 static void *pg_mustach_load(const char *json) {
-    cJSON *root;
-    if (!(root = cJSON_Parse(json))) E("!cJSON_Parse");
+    json_error_t error;
+    json_t *root;
+    if (!(root = json_loads(json, 0, &error))) E("!json_loads and %s", error.text);
     return root;
 }
 
 static int pg_mustach_process(const char *template, void *root, FILE *file) {
-    return mustach_cJSON_file(template, root, Mustach_With_AllExtensions, file);
+    return mustach_jansson_file(template, root, Mustach_With_AllExtensions, file);
 }
 
 static void pg_mustach_close(void *root) {
-    cJSON_Delete(root);
+    json_decref(root);
 }
 
 EXTENSION(pg_mustach) {
