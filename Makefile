@@ -2,7 +2,7 @@ EXTENSION = pg_mustach
 MODULE_big = $(EXTENSION)
 
 PG_CONFIG = pg_config
-OBJS = $(EXTENSION).o
+OBJS = $(EXTENSION).o pg_mustach-json-c.o
 DATA = pg_mustach--1.0.sql
 
 LIBS += -lmustach
