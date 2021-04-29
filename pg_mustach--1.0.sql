@@ -9,3 +9,6 @@ CREATE OR REPLACE FUNCTION mustach_cjson(json JSON, template TEXT, file TEXT) RE
 
 CREATE OR REPLACE FUNCTION mustach_jansson(json JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_jansson' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION mustach_jansson(json JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_jansson' LANGUAGE 'c';
+
+CREATE OR REPLACE FUNCTION mustach_json_c(json JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach_json_c(json JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
