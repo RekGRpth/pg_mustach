@@ -52,7 +52,7 @@ EXTENSION(pg_mustach) {
     char *output_data;
     char *template;
     enum json_tokener_error error;
-    FILE *out;
+    FILE *file;
     size_t output_len;
     struct json_object *root;
     text *output;
@@ -62,17 +62,17 @@ EXTENSION(pg_mustach) {
     template = TextDatumGetCString(PG_GETARG_DATUM(1));
     if (!(root = json_tokener_parse_verbose(json, &error))) E("!json_tokener_parse and %s", json_tokener_error_desc(error));
     switch (PG_NARGS()) {
-        case 2: if (!(out = open_memstream(&output_data, &output_len))) E("!open_memstream"); break;
+        case 2: if (!(file = open_memstream(&output_data, &output_len))) E("!open_memstream"); break;
         case 3: {
             char *name;
             if (PG_ARGISNULL(2)) E("file is null!");
             name = TextDatumGetCString(PG_GETARG_DATUM(2));
-            if (!(out = fopen(name, "wb"))) E("!fopen");
+            if (!(file = fopen(name, "wb"))) E("!fopen");
             pfree(name);
         } break;
         default: E("expect be 2 or 3 args");
     }
-    switch (mustach_json_c_file(template, root, -1, out)) {
+    switch (mustach_json_c_file(template, root, -1, file)) {
         case MUSTACH_OK: break;
         case MUSTACH_ERROR_SYSTEM: E("MUSTACH_ERROR_SYSTEM"); break;
         case MUSTACH_ERROR_UNEXPECTED_END: E("MUSTACH_ERROR_UNEXPECTED_END"); break;
@@ -90,7 +90,7 @@ EXTENSION(pg_mustach) {
     pfree(json);
     pfree(template);
     if (!json_object_put(root)) E("!json_object_put");
-    fclose(out);
+    fclose(file);
     switch (PG_NARGS()) {
         case 2:
             output = cstring_to_text_with_len(output_data, output_len);
