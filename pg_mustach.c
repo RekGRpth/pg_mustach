@@ -64,11 +64,11 @@ EXTENSION(pg_mustach) {
     switch (PG_NARGS()) {
         case 2: if (!(out = open_memstream(&output_data, &output_len))) E("!open_memstream"); break;
         case 3: {
-            char *file;
+            char *name;
             if (PG_ARGISNULL(2)) E("file is null!");
-            file = TextDatumGetCString(PG_GETARG_DATUM(2));
-            if (!(out = fopen(file, "wb"))) E("!fopen");
-            pfree(file);
+            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            if (!(out = fopen(name, "wb"))) E("!fopen");
+            pfree(name);
         } break;
         default: E("expect be 2 or 3 args");
     }
