@@ -49,11 +49,11 @@ PG_MODULE_MAGIC;
 
 EXTENSION(pg_mustach) {
     char *json;
-    char *output_data;
+    char *data;
     char *template;
     enum json_tokener_error error;
     FILE *file;
-    size_t output_len;
+    size_t len;
     struct json_object *root;
     text *output;
     if (PG_ARGISNULL(0)) E("json is null!");
@@ -62,7 +62,7 @@ EXTENSION(pg_mustach) {
     template = TextDatumGetCString(PG_GETARG_DATUM(1));
     if (!(root = json_tokener_parse_verbose(json, &error))) E("!json_tokener_parse and %s", json_tokener_error_desc(error));
     switch (PG_NARGS()) {
-        case 2: if (!(file = open_memstream(&output_data, &output_len))) E("!open_memstream"); break;
+        case 2: if (!(file = open_memstream(&data, &len))) E("!open_memstream"); break;
         case 3: {
             char *name;
             if (PG_ARGISNULL(2)) E("file is null!");
@@ -93,8 +93,8 @@ EXTENSION(pg_mustach) {
     fclose(file);
     switch (PG_NARGS()) {
         case 2:
-            output = cstring_to_text_with_len(output_data, output_len);
-            free(output_data);
+            output = cstring_to_text_with_len(data, len);
+            free(data);
             PG_RETURN_TEXT_P(output);
             break;
         case 3: PG_RETURN_BOOL(true); break;
