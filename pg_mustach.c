@@ -1,5 +1,11 @@
 #include "include.h"
+
+#include <catalog/pg_type.h>
+#include <fmgr.h>
 #include <mustach/mustach.h>
+#include <utils/builtins.h>
+
+#define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
 PG_MODULE_MAGIC;
 

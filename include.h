@@ -1,16 +1,5 @@
 #include <postgres.h>
 
-#include <catalog/pg_type.h>
-#include <fmgr.h>
-extern text *cstring_to_text(const char *s);
-extern text *cstring_to_text_with_len(const char *s, int len);
-extern char *text_to_cstring(const text *t);
-extern void text_to_cstring_buffer(const text *src, char *dst, size_t dst_len);
-#define CStringGetTextDatum(s) PointerGetDatum(cstring_to_text(s))
-#define TextDatumGetCString(d) text_to_cstring((text *) DatumGetPointer(d))
-
-#define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
-
 #define FORMAT_0(fmt, ...) "%s(%s:%d): %s", __func__, __FILE__, __LINE__, fmt
 #define FORMAT_1(fmt, ...) "%s(%s:%d): " fmt,  __func__, __FILE__, __LINE__
 #define GET_FORMAT(fmt, ...) GET_FORMAT_PRIVATE(fmt, 0, ##__VA_ARGS__, 1, \
