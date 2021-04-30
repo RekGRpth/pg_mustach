@@ -4,7 +4,7 @@
 void *pg_mustach_load_jansson(const char *buffer, size_t buflen) {
     json_error_t error;
     json_t *root;
-    if (!(root = json_loadb(buffer, buflen, 0, &error))) E("!json_loadb and %s", error.text);
+    if (!(root = json_loadb(buffer, buflen, JSON_DECODE_ANY, &error))) E("!json_loadb and %s", error.text);
     return root;
 }
 

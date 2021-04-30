@@ -9,7 +9,7 @@
 
 PG_MODULE_MAGIC;
 
-static Datum pg_mustach_internal(FunctionCallInfo fcinfo, void *(*pg_mustach_load)(const char *data, size_t len), int (*pg_mustach_process)(const char *template, void *root, FILE *file), void (*pg_mustach_close)(void *root)) {
+static Datum pg_mustach(FunctionCallInfo fcinfo, void *(*pg_mustach_load)(const char *data, size_t len), int (*pg_mustach_process)(const char *template, void *root, FILE *file), void (*pg_mustach_close)(void *root)) {
     char *data;
     char *template;
     FILE *file;
@@ -62,8 +62,6 @@ static Datum pg_mustach_internal(FunctionCallInfo fcinfo, void *(*pg_mustach_loa
     }
 }
 
-EXTENSION(pg_mustach) { return pg_mustach_internal(fcinfo, pg_mustach_load_json_c, pg_mustach_process_json_c, pg_mustach_close_json_c); }
-
-EXTENSION(pg_mustach_cjson) { return pg_mustach_internal(fcinfo, pg_mustach_load_cjson, pg_mustach_process_cjson, pg_mustach_close_cjson); }
-EXTENSION(pg_mustach_jansson) { return pg_mustach_internal(fcinfo, pg_mustach_load_jansson, pg_mustach_process_jansson, pg_mustach_close_jansson); }
-EXTENSION(pg_mustach_json_c) { return pg_mustach_internal(fcinfo, pg_mustach_load_json_c, pg_mustach_process_json_c, pg_mustach_close_json_c); }
+EXTENSION(pg_mustach_cjson) { return pg_mustach(fcinfo, pg_mustach_load_cjson, pg_mustach_process_cjson, pg_mustach_close_cjson); }
+EXTENSION(pg_mustach_jansson) { return pg_mustach(fcinfo, pg_mustach_load_jansson, pg_mustach_process_jansson, pg_mustach_close_jansson); }
+EXTENSION(pg_mustach_json_c) { return pg_mustach(fcinfo, pg_mustach_load_json_c, pg_mustach_process_json_c, pg_mustach_close_json_c); }
