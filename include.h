@@ -32,14 +32,6 @@
 #define N(fmt, ...) ereport(NOTICE, (errmsg(GET_FORMAT(fmt, ##__VA_ARGS__), ##__VA_ARGS__)))
 #define W(fmt, ...) ereport(WARNING, (errmsg(GET_FORMAT(fmt, ##__VA_ARGS__), ##__VA_ARGS__)))
 
-void *pg_mustach_load_cjson(const char *value, size_t buffer_length);
-int pg_mustach_process_cjson(const char *template, void *root, FILE *file);
-void pg_mustach_close_cjson(void *root);
-
-void *pg_mustach_load_jansson(const char *buffer, size_t buflen);
-int pg_mustach_process_jansson(const char *template, void *root, FILE *file);
-void pg_mustach_close_jansson(void *root);
-
-void *pg_mustach_load_json_c(const char *str, size_t len);
-int pg_mustach_process_json_c(const char *template, void *root, FILE *file);
-void pg_mustach_close_json_c(void *root);
+int pg_mustach_process_cjson(const char *template, const char *value, size_t buffer_length, FILE *file);
+int pg_mustach_process_jansson(const char *template, const char *buffer, size_t buflen, FILE *file);
+int pg_mustach_process_json_c(const char *template, const char *str, size_t len, FILE *file);
