@@ -1,9 +1,9 @@
 #include "include.h"
 #include <mustach/mustach-cjson.h>
 
-void *pg_mustach_load_cjson(const char *json) {
+void *pg_mustach_load_cjson(const char *value, size_t buffer_length) {
     cJSON *root;
-    if (!(root = cJSON_Parse(json))) E("!cJSON_Parse");
+    if (!(root = cJSON_ParseWithLength(value, buffer_length))) E("!cJSON_ParseWithLength");
     return root;
 }
 

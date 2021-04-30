@@ -9,19 +9,19 @@
 
 PG_MODULE_MAGIC;
 
-static Datum pg_mustach_internal(FunctionCallInfo fcinfo, void *(*pg_mustach_load)(const char *json), int (*pg_mustach_process)(const char *template, void *root, FILE *file), void (*pg_mustach_close)(void *root)) {
+static Datum pg_mustach_internal(FunctionCallInfo fcinfo, void *(*pg_mustach_load)(const char *data, size_t len), int (*pg_mustach_process)(const char *template, void *root, FILE *file), void (*pg_mustach_close)(void *root)) {
     char *data;
-    char *json;
     char *template;
     FILE *file;
     size_t len;
+    text *json;
     text *output;
     void *root;
     if (PG_ARGISNULL(0)) E("json is null!");
     if (PG_ARGISNULL(1)) E("template is null!");
-    json = TextDatumGetCString(PG_GETARG_DATUM(0));
+    json = DatumGetTextP(PG_GETARG_DATUM(0));
     template = TextDatumGetCString(PG_GETARG_DATUM(1));
-    root = pg_mustach_load(json);
+    root = pg_mustach_load(VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
     switch (PG_NARGS()) {
         case 2: if (!(file = open_memstream(&data, &len))) E("!open_memstream"); break;
         case 3: {
@@ -48,7 +48,6 @@ static Datum pg_mustach_internal(FunctionCallInfo fcinfo, void *(*pg_mustach_loa
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: E("MUSTACH_ERROR_PARTIAL_NOT_FOUND"); break;
         default: E("pg_mustach_process"); break;
     }
-    pfree(json);
     pfree(template);
     pg_mustach_close(root);
     fclose(file);
