@@ -9,17 +9,17 @@
 
 PG_MODULE_MAGIC;
 
-static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, const char *data, size_t len, FILE *file)) {
+static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, FILE *file)) {
     char *data;
-    char *template;
     FILE *file;
     size_t len;
     text *json;
     text *output;
+    text *template;
     if (PG_ARGISNULL(0)) E("json is null!");
     if (PG_ARGISNULL(1)) E("template is null!");
     json = DatumGetTextP(PG_GETARG_DATUM(0));
-    template = TextDatumGetCString(PG_GETARG_DATUM(1));
+    template = DatumGetTextP(PG_GETARG_DATUM(1));
     switch (PG_NARGS()) {
         case 2: if (!(file = open_memstream(&data, &len))) E("!open_memstream"); break;
         case 3: {
@@ -31,7 +31,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         } break;
         default: E("expect be 2 or 3 args");
     }
-    switch (pg_mustach_process(template, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), file)) {
+    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), file)) {
         case MUSTACH_OK: break;
         case MUSTACH_ERROR_SYSTEM: E("MUSTACH_ERROR_SYSTEM"); break;
         case MUSTACH_ERROR_UNEXPECTED_END: E("MUSTACH_ERROR_UNEXPECTED_END"); break;
@@ -46,7 +46,6 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: E("MUSTACH_ERROR_PARTIAL_NOT_FOUND"); break;
         default: E("pg_mustach_process"); break;
     }
-    pfree(template);
     fclose(file);
     switch (PG_NARGS()) {
         case 2:
