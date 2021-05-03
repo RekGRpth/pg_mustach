@@ -1,4 +1,4 @@
-#include "include.h"
+#include "pg_mustach.h"
 #include <mustach/mustach-cjson.h>
 
 int pg_mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, FILE *file) {

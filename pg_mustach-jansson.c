@@ -1,4 +1,4 @@
-#include "include.h"
+#include "pg_mustach.h"
 #include <mustach/mustach-jansson.h>
 
 int pg_mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, FILE *file) {

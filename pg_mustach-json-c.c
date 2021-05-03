@@ -1,4 +1,4 @@
-#include "include.h"
+#include "pg_mustach.h"
 #include <mustach/mustach-json-c.h>
 
 int pg_mustach_process_json_c(const char *template, size_t length, const char *str, size_t len, FILE *file) {
