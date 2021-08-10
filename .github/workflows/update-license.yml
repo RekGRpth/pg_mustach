@@ -4,7 +4,7 @@ on:
     - cron: '0 19 1 1 *'
   workflow_dispatch:
 jobs:
-  merge:
+  license:
     env:
       GITHUB_TOKEN: ${{ secrets.PUBLIC_REPO_ACCESS_TOKEN }}
     runs-on: ubuntu-latest
