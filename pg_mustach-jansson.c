@@ -1,4 +1,6 @@
 #include "pg_mustach.h"
+
+#if __has_include(<mustach/mustach-jansson.h>)
 #include <mustach/mustach-jansson.h>
 
 int pg_mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, FILE *file) {
@@ -10,3 +12,8 @@ int pg_mustach_process_jansson(const char *template, size_t length, const char *
     json_decref(root);
     return rc;
 }
+#else
+int pg_mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, FILE *file) {
+    E("!mustach_jansson");
+}
+#endif

@@ -1,4 +1,6 @@
 #include "pg_mustach.h"
+
+#if __has_include(<mustach/mustach-cjson.h>)
 #include <mustach/mustach-cjson.h>
 
 int pg_mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, FILE *file) {
@@ -9,3 +11,8 @@ int pg_mustach_process_cjson(const char *template, size_t length, const char *va
     cJSON_Delete(root);
     return rc;
 }
+#else
+int pg_mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, FILE *file) {
+    E("!mustach_cjson");
+}
+#endif
