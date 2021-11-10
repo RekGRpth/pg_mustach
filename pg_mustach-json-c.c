@@ -1,7 +1,7 @@
 #include "pg_mustach.h"
 
-#if __has_include(<mustach/mustach-json-c.h>)
-#include <mustach/mustach-json-c.h>
+#if __has_include("mustach/mustach-json-c.h")
+#include "mustach/mustach-json-c.h"
 
 int pg_mustach_process_json_c(const char *template, size_t length, const char *str, size_t len, FILE *file) {
     enum json_tokener_error error;
