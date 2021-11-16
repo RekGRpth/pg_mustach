@@ -1,0 +1,12 @@
+\unset ECHO
+1|Inline|1234567890
+2|Multiline|1234567890\n
+3|Standalone|Begin.\n\nEnd.\n
+4|Indented Standalone|Begin.\n  \nEnd.\n
+5|Standalone Line Endings||\r\n\r\n|
+6|Standalone Without Previous Line|  \n!
+7|Standalone Without Newline|!\n  
+8|Multiline Standalone|Begin.\n\nEnd.\n
+9|Indented Multiline Standalone|Begin.\n  \nEnd.\n
+10|Indented Inline|  12 \n
+11|Surrounding Whitespace|12345  67890

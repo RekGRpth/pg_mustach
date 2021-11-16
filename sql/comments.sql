@@ -1,0 +1,19 @@
+\unset ECHO
+\set QUIET 1
+\pset format unaligned
+\pset tuples_only true
+\pset pager off
+\set ON_ERROR_ROLLBACK 1
+\set ON_ERROR_STOP true
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'Inline', mustach('{}', '12345{{! Comment Block! }}67890');
+SELECT 2, 'Multiline', mustach('{}', '12345{{!\n  This is a\n  multi-line comment...\n}}67890\n');
+SELECT 3, 'Standalone', mustach('{}', 'Begin.\n{{! Comment Block! }}\nEnd.\n');
+SELECT 4, 'Indented Standalone', mustach('{}', 'Begin.\n  {{! Indented Comment Block! }}\nEnd.\n');
+SELECT 5, 'Standalone Line Endings', mustach('{}', '|\r\n{{! Standalone Comment }}\r\n|');
+SELECT 6, 'Standalone Without Previous Line', mustach('{}', '  {{! I''m Still Standalone }}\n!');
+SELECT 7, 'Standalone Without Newline', mustach('{}', '!\n  {{! I''m Still Standalone }}');
+SELECT 8, 'Multiline Standalone', mustach('{}', 'Begin.\n{{!\nSomething''s going on here...\n}}\nEnd.\n');
+SELECT 9, 'Indented Multiline Standalone', mustach('{}', 'Begin.\n  {{!\n    Something''s going on here...\n  }}\nEnd.\n');
+SELECT 10, 'Indented Inline', mustach('{}', '  12 {{! 34 }}\n');
+SELECT 11, 'Surrounding Whitespace', mustach('{}', '12345 {{! Comment Block! }} 67890');
