@@ -1,0 +1,23 @@
+\unset ECHO
+1	Falsey	"This should be rendered."
+2	Truthy	""
+3	Null is falsey	"This should be rendered."
+4	Context	""
+5	List	""
+6	Empty List	"Yay lists!"
+7	Doubled	* first\n* second\n* third\n
+8	Nested (Falsey)	| A B C D E |
+9	Nested (Truthy)	| A  E |
+10	Context Misses	[Cannot find key 'missing'!]
+11	Dotted Names - Truthy	"" == ""
+12	Dotted Names - Falsey	"Not Here" == "Not Here"
+13	Dotted Names - Broken Chains	"Not Here" == "Not Here"
+14	Surrounding Whitespace	 | \t|\t | \n
+15	Internal Whitespace	 |  \n  | \n
+16	Indented Inline Sections	 NO\n WAY\n
+17	Standalone Lines	| This Is\n|\n| A Line\n
+18	Standalone Indented Lines	| This Is\n|\n| A Line\n
+19	Standalone Line Endings	|\r\n|
+20	Standalone Without Previous Line	^\n/
+21	Standalone Without Newline	^\n/\n
+22	Padding	|=|
