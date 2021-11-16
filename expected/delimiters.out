@@ -1,15 +1,15 @@
 \unset ECHO
-1|Pair Behavior|(Hey!)
-2|Special Characters|(It worked!)
-3|Special Characters|[\n  I got interpolated.\n  |data|\n\n  {{data}}\n  I got interpolated.\n]\n
-4|Inverted Sections|[\n  I got interpolated.\n  |data|\n\n  {{data}}\n  I got interpolated.\n]\n
-5|Partial Inheritence|[ .yes. ]\n[ .yes. ]\n
-6|Post-Partial Behavior|[ .yes.  .yes. ]\n[ .yes.  .|value|. ]\n
-7|Surrounding Whitespace||  |
-8|Outlying Whitespace (Inline)| | \n
-9|Standalone Tag|Begin.\nEnd.\n
-10|Indented Standalone Tag|Begin.\nEnd.\n
-11|Standalone Line Endings||\r\n|
-12|Standalone Without Previous Line|=
-13|Standalone Without Newline|=\n
-14|Pair with Padding|||
+1	Pair Behavior	(Hey!)
+2	Special Characters	(It worked!)
+3	Special Characters	[\n  I got interpolated.\n  |data|\n\n  {{data}}\n  I got interpolated.\n]\n
+4	Inverted Sections	[\n  I got interpolated.\n  |data|\n\n  {{data}}\n  I got interpolated.\n]\n
+5	Partial Inheritence	[ .yes. ]\n[ .yes. ]\n
+6	Post-Partial Behavior	[ .yes.  .yes. ]\n[ .yes.  .|value|. ]\n
+7	Surrounding Whitespace	|  |
+8	Outlying Whitespace (Inline)	 | \n
+9	Standalone Tag	Begin.\nEnd.\n
+10	Indented Standalone Tag	Begin.\nEnd.\n
+11	Standalone Line Endings	|\r\n|
+12	Standalone Without Previous Line	=
+13	Standalone Without Newline	=\n
+14	Pair with Padding	||
