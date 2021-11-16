@@ -1,0 +1,187 @@
+\unset ECHO
+1|mustach|Hello Chris
+You have just won 10000 dollars!
+Well, 6000 dollars, after taxes.
+Shown.
+  No person
+
+  <b>resque</b> reviewers:  avrel  commiters: joe  william
+  <b>hub</b> reviewers:  avrel  commiters: jack  greg
+  <b>rip</b> reviewers: joe jack  commiters:   greg
+
+  Hi Jon!
+
+ =====================================
+  <b>resque</b> reviewers:  avrel  commiters: joe  william
+  <b>hub</b> reviewers:  avrel  commiters: jack  greg
+  <b>rip</b> reviewers: joe jack  commiters:   greg
+ =====================================
+ggggggggg
+----3.14159----
+jjjjjjjjj
+end
+
+#
+!
+~
+~
+/ see json pointers IETF RFC 6901
+^
+=
+:
+&gt;
+2|mustach|<h1>Colors</h1>
+
+    <li><strong>red</strong></li>
+    <li><a href="#Green">green</a></li>
+    <li><a href="#Blue">blue</a></li>
+
+
+3|mustach|* Chris
+* 18
+* &lt;b&gt;GitHub &amp; Co&lt;/b&gt;
+* <b>GitHub & Co</b>
+* <b>GitHub & Co</b>
+* &lt;b&gt;GitHub &amp; Co&lt;/b&gt;
+* <b>GitHub & Co</b>
+* <b>GitHub & Co</b>
+
+* <ul><li>Chris</li><li>Kross</li></ul>
+* skills: <ul><li>JavaScript</li><li>PHP</li><li>Java</li></ul>
+* age: 18
+4|mustach|This are extensions!!
+
+Jon
+25
+
+Fred
+The other Fred.
+
+
+Hello Jon
+
+
+
+
+
+No Harry? Hey Calahan...
+
+
+
+Hello Fred
+
+
+
+
+
+Hello Fred#2
+
+
+
+
+
+Hello Jon, 25 years
+
+
+Hello Henry, 27 years
+
+
+
+Salut Amed, 24 ans
+
+
+
+Jon: /25/25
+
+Henry: /27/
+
+Amed: 24/24/24
+
+
+
+Jon: /25/25
+
+Henry: /27/
+
+Amed: 24/24/24
+
+
+
+ (1) person: {"name":"Jon","age":25}
+   
+     (2) name: Jon
+     
+   
+     (2) age: 25
+     
+   
+
+ (1) person.name: Fred
+   
+
+ (1) person.name=Fred: The other Fred.
+   
+
+ (1) persons: [{"name":"Jon","age":25,"lang":"en"},{"name":"Henry","age":27,"lang":"en"},{"name":"Amed","age":24,"lang":"fr"}]
+   
+
+ (1) fellows: {"Jon":{"age":25,"lang":"en"},"Henry":{"age":27,"lang":"en"},"Amed":{"age":24,"lang":"fr"}}
+   
+     (2) Jon: {"age":25,"lang":"en"}
+     
+       (3) age: 25
+     
+       (3) lang: en
+     
+   
+     (2) Henry: {"age":27,"lang":"en"}
+     
+       (3) age: 27
+     
+       (3) lang: en
+     
+   
+     (2) Amed: {"age":24,"lang":"fr"}
+     
+       (3) age: 24
+     
+       (3) lang: fr
+     
+   
+
+5|mustach| =====================================
+from json
+----3.14159---- =====================================
+not found
+ =====================================
+without extension first
+must2 == BEGIN
+Hello Chris
+You have just won 10000 dollars!
+Well, 6000 dollars, after taxes.
+Shown.
+  No person
+must2 == END
+ =====================================
+last with extension
+must3.mustache == BEGIN
+  <b>resque</b> reviewers:  avrel  commiters: joe  william
+  <b>hub</b> reviewers:  avrel  commiters: jack  greg
+  <b>rip</b> reviewers: joe jack  commiters:   greg
+
+  Hi Jon!
+
+ =====================================
+  <b>resque</b> reviewers:  avrel  commiters: joe  william
+  <b>hub</b> reviewers:  avrel  commiters: jack  greg
+  <b>rip</b> reviewers: joe jack  commiters:   greg
+ =====================================
+must3.mustache == END
+ =====================================
+Ensure must3 didn\'t change specials
+
+  Hi Jon!
+
+%(%#person?%)%
+  Hi %(%name%)%!
+%(%/person?%)%
