@@ -1,0 +1,40 @@
+\unset ECHO
+1|No Interpolation|Hello from {Mustache}!\n
+2|Basic Interpolation|Hello, world!\n
+3|HTML Escaping|These characters should be HTML escaped: &amp; &quot; &lt; &gt;\n
+4|Triple Mustache|These characters should not be HTML escaped: & " < >\n
+5|Ampersand|These characters should not be HTML escaped: & " < >\n
+6|Basic Integer Interpolation|\"85 miles an hour!\"
+7|Triple Mustache Integer Interpolation|\"85 miles an hour!\"
+8|Ampersand Integer Interpolation|\"85 miles an hour!\"
+9|Basic Decimal Interpolation|\"1.21 jiggawatts!\"
+10|Triple Mustache Decimal Interpolation|\"1.21 jiggawatts!\"
+11|Ampersand Decimal Interpolation|\"1.21 jiggawatts!\"
+12|Basic Null Interpolation|I () be seen!
+13|Triple Mustache Null Interpolation|I () be seen!
+14|Ampersand Null Interpolation|I () be seen!
+15|Basic Context Miss Interpolation|I () be seen!
+16|Triple Mustache Context Miss Interpolation|I () be seen!
+17|Ampersand Context Miss Interpolation|I () be seen!
+18|Dotted Names - Basic Interpolation|\"Joe\" == \"Joe\"
+19|Dotted Names - Triple Mustache Interpolation|\"Joe\" == \"Joe\"
+20|Dotted Names - Ampersand Interpolation|\"Joe\" == \"Joe\"
+21|Dotted Names - Arbitrary Depth|\"Phil\" == \"Phil\"
+22|Dotted Names - Broken Chains|\"\" == \"\"
+23|Dotted Names - Broken Chain Resolution|\"\" == \"\"
+24|Dotted Names - Initial Resolution|\"Phil\" == \"Phil\"
+25|Dotted Names - Context Precedence| 
+26|Implicit Iterators - Basic Interpolation|Hello, world!\n
+27|Implicit Iterators - HTML Escaping|These characters should be HTML escaped: &amp; &quot; &lt; &gt;\n
+28|Implicit Iterators - Triple Mustache|These characters should not be HTML escaped: & " < >\n
+29|Implicit Iterators - Ampersand|These characters should not be HTML escaped: & " < >\n
+30|Implicit Iterators - Basic Integer Interpolation|\"85 miles an hour!\"
+31|Interpolation - Surrounding Whitespace|| --- |
+32|Triple Mustache - Surrounding Whitespace|| --- |
+33|Ampersand - Surrounding Whitespace|| --- |
+34|Interpolation - Standalone|  ---\n
+35|Triple Mustache - Standalone|  ---\n
+36|Ampersand - Standalone|  ---\n
+37|Interpolation With Padding||---|
+38|Triple Mustache With Padding||---|
+39|Ampersand With Padding||---|
