@@ -46,3 +46,4 @@ SELECT 36, 'Ampersand - Standalone', mustach('{"string": "---"}', '  {{&string}}
 SELECT 37, 'Interpolation With Padding', mustach('{"string": "---"}', '|{{ string }}|');
 SELECT 38, 'Triple Mustache With Padding', mustach('{"string": "---"}', '|{{{ string }}}|');
 SELECT 39, 'Ampersand With Padding', mustach('{"string": "---"}', '|{{& string }}|');
+ROLLBACK;
