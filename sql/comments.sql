@@ -5,6 +5,7 @@
 \pset pager off
 \set ON_ERROR_ROLLBACK 1
 \set ON_ERROR_STOP true
+BEGIN;
 CREATE EXTENSION pg_mustach;
 SELECT 1, 'Inline', mustach('{}', '12345{{! Comment Block! }}67890');
 SELECT 2, 'Multiline', mustach('{}', '12345{{!\n  This is a\n  multi-line comment...\n}}67890\n');
@@ -17,3 +18,4 @@ SELECT 8, 'Multiline Standalone', mustach('{}', 'Begin.\n{{!\nSomething''s going
 SELECT 9, 'Indented Multiline Standalone', mustach('{}', 'Begin.\n  {{!\n    Something''s going on here...\n  }}\nEnd.\n');
 SELECT 10, 'Indented Inline', mustach('{}', '  12 {{! 34 }}\n');
 SELECT 11, 'Surrounding Whitespace', mustach('{}', '12345 {{! Comment Block! }} 67890');
+ROLLBACK;
