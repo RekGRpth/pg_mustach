@@ -1,0 +1,19 @@
+\unset ECHO
+1|array-each|MoeLarryCurlyShemp
+2|complex|<h1>Colors</h1>
+  <ul>
+        <li><strong>red</strong></li>
+        <li><a href="#Green">green</a></li>
+        <li><a href="#Blue">blue</a></li>
+  </ul>
+
+3|data|MoeLarryCurlyShemp
+4|depth-1|barbarbarbar
+5|depth-2|foobarfoobarfoobarfoobar
+6|object|Larry45
+7|object-mustache|Larry45
+8|partial|Hello Moe! You have 15 new messages.Hello Larry! You have 5 new messages.Hello Curly! You have 1 new messages.
+9|partial-recursion|11.11.1.1
+10|paths|Larry45
+11|string|Hello world
+12|variables|Hello Mick! You have 30 new messages.
