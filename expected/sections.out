@@ -1,0 +1,31 @@
+\unset ECHO
+1	Truthy	"This should be rendered."
+2	Falsey	""
+3	Null is falsey	""
+4	Context	"Hi Joe."
+5	Parent contexts	"foo, bar, baz"
+6	Variable test	"bar is bar"
+7	List Contexts	a1.A1x.A1y.
+8	Deeply Nested Contexts	1\n121\n12321\n1234321\n123454321\n12345654321\n123454321\n1234321\n12321\n121\n1\n
+9	List	"123"
+10	Empty List	""
+11	Doubled	* first\n* second\n* third\n
+12	Nested (Truthy)	| A B C D E |
+13	Nested (Falsey)	| A  E |
+14	Context Misses	[]
+15	Implicit Iterator - String	"(a)(b)(c)(d)(e)"
+16	Implicit Iterator - Integer	"(1)(2)(3)(4)(5)"
+17	Implicit Iterator - Decimal	"(1.1)(2.2)(3.3)(4.4)(5.5)"
+18	Implicit Iterator - Array	"(123)(abc)"
+19	Dotted Names - Truthy	"Here" == "Here"
+20	Dotted Names - Falsey	"" == ""
+21	Dotted Names - Broken Chains	"" == ""
+22	Surrounding Whitespace	 | \t|\t | \n
+23	Internal Whitespace	 |  \n  | \n
+24	Indented Inline Sections	 YES\n GOOD\n
+25	Standalone Lines	| This Is\n|\n| A Line\n
+26	Indented Standalone Lines	| This Is\n|\n| A Line\n
+27	Standalone Line Endings	|\r\n|
+28	Standalone Without Previous Line	#\n/
+29	Standalone Without Newline	#\n/\n
+30	Padding	|=|
