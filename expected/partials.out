@@ -1,0 +1,12 @@
+\unset ECHO
+1	Basic Behavior	"from partial"
+2	Failed Lookup	""
+3	Context	"*content*"
+4	Recursion	X<Y<>>
+5	Surrounding Whitespace	| \t|\t |
+6	Inline Indentation	  |  >\n>\n
+7	Standalone Line Endings	|\r\n>|
+8	Standalone Without Previous Line	  >\n  >>
+9	Standalone Without Newline	>\n  >\n  >
+10	Standalone Indentation	\\\n |\n <\n->\n |\n/\n
+11	Padding Whitespace	|[]|
