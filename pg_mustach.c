@@ -21,7 +21,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     json = DatumGetTextP(PG_GETARG_DATUM(0));
     template = DatumGetTextP(PG_GETARG_DATUM(1));
     switch (PG_NARGS()) {
-        case 2: if (!(file = open_memstream(&data, &len)))ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream"))); break;
+        case 2: if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream"))); break;
         case 3: {
             char *name;
             if (PG_ARGISNULL(2)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("handlebars requires argument file")));
