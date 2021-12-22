@@ -6,6 +6,7 @@ OBJS = $(EXTENSION).o pg_mustach-cjson.o pg_mustach-jansson.o pg_mustach-json-c.
 PG_CONFIG = pg_config
 PGXS = $(shell $(PG_CONFIG) --pgxs)
 REGRESS = $(patsubst sql/%.sql,%,$(TESTS))
+REGRESS_OPTS = --use-existing
 SHLIB_LINK = -lmustach
 TESTS = $(wildcard sql/*.sql)
 include $(PGXS)
