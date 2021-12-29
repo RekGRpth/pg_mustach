@@ -2,13 +2,13 @@
     "name": "pg_mustach",
     "abstract": "PostgreSQL mustach",
     "description": "PostgreSQL implementation of mustache templating",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "maintainer": "RekGRpth <rekgrpth@gmail.com>",
     "license": "mit",
     "provides": {
         "pg_mustach": {
             "file": "pg_mustach--1.0.sql",
-            "version": "1.0.7"
+            "version": "1.0.8"
         }
     },
     "resources": {
