@@ -7,7 +7,7 @@ int pg_mustach_process_cjson(const char *template, size_t length, const char *va
     cJSON *root;
     int rc;
     if (!(root = cJSON_ParseWithLength(value, buffer_length))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!cJSON_ParseWithLength")));
-    rc = mustach_cJSON_file(template, length, root, Mustach_With_AllExtensions, file);
+    rc = mustach_cJSON_file(template, length, root, Mustach_With_AllExtensions | Mustach_With_ErrorUndefined, file);
     cJSON_Delete(root);
     return rc;
 }
