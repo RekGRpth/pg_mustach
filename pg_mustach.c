@@ -27,7 +27,7 @@ EXTENSION(pg_mustach_with_partialdatafirst) { flags |= Mustach_With_PartialDataF
 EXTENSION(pg_mustach_with_singledot) { flags |= Mustach_With_SingleDot; PG_RETURN_NULL(); }
 
 #if PG_VERSION_NUM >= 90500
-static void dfMemoryContextCallbackFunction(void *arg) {
+static void dataMemoryContextCallbackFunction(void *arg) {
     char **data = arg;
     if (*data) free(*data);
     *data = NULL;
@@ -62,7 +62,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
 #if PG_VERSION_NUM >= 90500
-    mcc->func = dfMemoryContextCallbackFunction;
+    mcc->func = dataMemoryContextCallbackFunction;
     mcc->arg = data;
     MemoryContextRegisterResetCallback(CurrentMemoryContext, mcc);
 #endif
