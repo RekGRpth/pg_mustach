@@ -3,7 +3,7 @@
 #if __has_include("mustach/mustach-cjson.h")
 #include "mustach/mustach-cjson.h"
 
-int pg_mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, int flags, FILE *file, char **err) {
+int mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, int flags, FILE *file, char **err) {
     cJSON *root;
     int rc = MUSTACH_ERROR_USER(1);
     if (!(root = cJSON_ParseWithLength(value, buffer_length))) { *err = pstrdup(cJSON_GetErrorPtr()); goto ret; }
@@ -14,7 +14,7 @@ ret:
     return rc;
 }
 #else
-int pg_mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, int flags, FILE *file, char **err) {
+int mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, int flags, FILE *file, char **err) {
     *err = "!mustach_cjson";
     fclose(file);
     return MUSTACH_ERROR_USER(1);

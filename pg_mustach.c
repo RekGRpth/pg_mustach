@@ -77,6 +77,6 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     }
 }
 
-EXTENSION(pg_mustach_cjson) { return pg_mustach(fcinfo, pg_mustach_process_cjson); }
-EXTENSION(pg_mustach_jansson) { return pg_mustach(fcinfo, pg_mustach_process_jansson); }
-EXTENSION(pg_mustach_json_c) { return pg_mustach(fcinfo, pg_mustach_process_json_c); }
+EXTENSION(pg_mustach_cjson) { return pg_mustach(fcinfo, mustach_process_cjson); }
+EXTENSION(pg_mustach_jansson) { return pg_mustach(fcinfo, mustach_process_jansson); }
+EXTENSION(pg_mustach_json_c) { return pg_mustach(fcinfo, mustach_process_json_c); }

@@ -3,7 +3,7 @@
 #if __has_include("mustach/mustach-jansson.h")
 #include "mustach/mustach-jansson.h"
 
-int pg_mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, int flags, FILE *file, char **err) {
+int mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, int flags, FILE *file, char **err) {
     int rc = MUSTACH_ERROR_USER(1);
     json_error_t error;
     json_t *root;
@@ -15,7 +15,7 @@ ret:
     return rc;
 }
 #else
-int pg_mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, int flags, FILE *file, char **err) {
+int mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, int flags, FILE *file, char **err) {
     *err = "!mustach_jansson";
     fclose(file);
     return MUSTACH_ERROR_USER(1);

@@ -17,7 +17,7 @@ static struct json_object *json_tokener_parse_verbose_len(const char *str, size_
     return obj;
 }
 
-int pg_mustach_process_json_c(const char *template, size_t length, const char *str, size_t len, int flags, FILE *file, char **err) {
+int mustach_process_json_c(const char *template, size_t length, const char *str, size_t len, int flags, FILE *file, char **err) {
     enum json_tokener_error error = json_tokener_success;
     int rc = MUSTACH_ERROR_USER(1);
     struct json_object *root;
@@ -29,7 +29,7 @@ ret:
     return rc;
 }
 #else
-int pg_mustach_process_json_c(const char *template, size_t length, const char *str, size_t len, int flags, FILE *file, char **err) {
+int mustach_process_json_c(const char *template, size_t length, const char *str, size_t len, int flags, FILE *file, char **err) {
     *err = "!mustach_json_c";
     fclose(file);
     return MUSTACH_ERROR_USER(1);
