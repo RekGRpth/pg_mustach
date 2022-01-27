@@ -36,8 +36,8 @@ static void dfMemoryContextCallbackFunction(void *arg) {
     data_file *df = arg;
     if (df->data) free(df->data);
     df->data = NULL;
-    if (df->file) fclose(df->file);
-    df->file = NULL;
+//    if (df->file) fclose(df->file);
+//    df->file = NULL;
 }
 #endif
 
@@ -86,7 +86,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
         case MUSTACH_ERROR_UNDEFINED_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNDEFINED_TAG"))); break;
     }
-    fclose(df->file);
+//    fclose(df->file);
     df->file = NULL;
     switch (PG_NARGS()) {
         case 2:

@@ -7,13 +7,15 @@ int pg_mustach_process_jansson(const char *template, size_t length, const char *
     int rc;
     json_error_t error;
     json_t *root;
-    if (!(root = json_loadb(buffer, buflen, JSON_DECODE_ANY, &error))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!json_loadb"), errdetail("%s", error.text)));
+    if (!(root = json_loadb(buffer, buflen, JSON_DECODE_ANY, &error))) { fclose(file); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!json_loadb"), errdetail("%s", error.text))); }
     rc = mustach_jansson_file(template, length, root, flags, file);
     json_decref(root);
+    fclose(file);
     return rc;
 }
 #else
 int pg_mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, int flags, FILE *file) {
+    fclose(file);
     ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED), errmsg("!mustach_jansson")));
 }
 #endif
