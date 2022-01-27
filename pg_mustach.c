@@ -31,6 +31,7 @@ typedef struct {
     FILE *file;
 } data_file;
 
+#if PG_VERSION_NUM >= 90500
 static void dfMemoryContextCallbackFunction(void *arg) {
     data_file *df = arg;
     if (df->data) free(df->data);
@@ -38,10 +39,13 @@ static void dfMemoryContextCallbackFunction(void *arg) {
     if (df->file) fclose(df->file);
     df->file = NULL;
 }
+#endif
 
 static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file)) {
     data_file *df = palloc0(sizeof(*df));
+#if PG_VERSION_NUM >= 90500
     struct MemoryContextCallback *mcc = palloc0(sizeof(*mcc));
+#endif
     size_t len;
     text *json;
     text *output;
@@ -63,9 +67,11 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
+#if PG_VERSION_NUM >= 90500
     mcc->func = dfMemoryContextCallbackFunction;
     mcc->arg = df;
     MemoryContextRegisterResetCallback(CurrentMemoryContext, mcc);
+#endif
     switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, df->file)) {
         case MUSTACH_ERROR_SYSTEM: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
         case MUSTACH_ERROR_UNEXPECTED_END: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
@@ -79,7 +85,6 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         case MUSTACH_ERROR_ITEM_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_ITEM_NOT_FOUND"))); break;
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
         case MUSTACH_ERROR_UNDEFINED_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNDEFINED_TAG"))); break;
-        default: break;
     }
     fclose(df->file);
     df->file = NULL;
