@@ -3,11 +3,28 @@
 #include <catalog/pg_type.h>
 #include <fmgr.h>
 #include <mustach/mustach.h>
+#include <mustach/mustach-wrap.h>
 #include <utils/builtins.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
 PG_MODULE_MAGIC;
+
+static int flags = Mustach_With_AllExtensions;
+
+EXTENSION(pg_mustach_with_allextensions) { flags |= Mustach_With_AllExtensions; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_colon) { flags |= Mustach_With_Colon; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_compare) { flags |= Mustach_With_Compare; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_emptytag) { flags |= Mustach_With_EmptyTag; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_equal) { flags |= Mustach_With_Equal; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_errorundefined) { flags |= Mustach_With_ErrorUndefined; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_escfirstcmp) { flags |= Mustach_With_EscFirstCmp; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_incpartial) { flags |= Mustach_With_IncPartial; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_jsonpointer) { flags |= Mustach_With_JsonPointer; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_noextensions) { flags = Mustach_With_NoExtensions; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_objectiter) { flags |= Mustach_With_ObjectIter; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_partialdatafirst) { flags |= Mustach_With_PartialDataFirst; PG_RETURN_NULL(); }
+EXTENSION(pg_mustach_with_singledot) { flags |= Mustach_With_SingleDot; PG_RETURN_NULL(); }
 
 typedef struct {
     char *data;
@@ -22,7 +39,7 @@ static void dfMemoryContextCallbackFunction(void *arg) {
     df->file = NULL;
 }
 
-static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, FILE *file)) {
+static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file)) {
     data_file *df = palloc0(sizeof(*df));
     struct MemoryContextCallback *mcc = palloc0(sizeof(*mcc));
     size_t len;
@@ -49,7 +66,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     mcc->func = dfMemoryContextCallbackFunction;
     mcc->arg = df;
     MemoryContextRegisterResetCallback(CurrentMemoryContext, mcc);
-    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), df->file)) {
+    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, df->file)) {
         case MUSTACH_ERROR_SYSTEM: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
         case MUSTACH_ERROR_UNEXPECTED_END: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
         case MUSTACH_ERROR_EMPTY_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_EMPTY_TAG"))); break;
