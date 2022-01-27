@@ -3,7 +3,7 @@
 #if __has_include("mustach/mustach-json-c.h")
 #include "mustach/mustach-json-c.h"
 
-static struct json_object *json_tokener_parse_verbose_len(const char *str, int len, enum json_tokener_error *error) {
+static struct json_object *json_tokener_parse_verbose_len(const char *str, size_t len, enum json_tokener_error *error) {
     struct json_tokener *tok;
     struct json_object *obj;
     if (!(tok = json_tokener_new())) return NULL;
