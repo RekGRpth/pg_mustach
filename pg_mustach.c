@@ -26,20 +26,10 @@ EXTENSION(pg_mustach_with_objectiter) { flags |= Mustach_With_ObjectIter; PG_RET
 EXTENSION(pg_mustach_with_partialdatafirst) { flags |= Mustach_With_PartialDataFirst; PG_RETURN_NULL(); }
 EXTENSION(pg_mustach_with_singledot) { flags |= Mustach_With_SingleDot; PG_RETURN_NULL(); }
 
-#if PG_VERSION_NUM >= 90500
-static void dataMemoryContextCallbackFunction(void *arg) {
-    char **data = arg;
-    if (*data) free(*data);
-    *data = NULL;
-}
-#endif
-
-static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file)) {
-    char **data = palloc0(sizeof(**data));
+static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file, char **err)) {
+    char *data;
+    char *err;
     FILE *file;
-#if PG_VERSION_NUM >= 90500
-    struct MemoryContextCallback *mcc = palloc0(sizeof(*mcc));
-#endif
     size_t len;
     text *json;
     text *output;
@@ -50,7 +40,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     template = DatumGetTextP(PG_GETARG_DATUM(1));
     switch (PG_NARGS()) {
         case 2: {
-            if (!(file = open_memstream(data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
+            if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
         } break;
         case 3: {
             char *name;
@@ -61,12 +51,8 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
-#if PG_VERSION_NUM >= 90500
-    mcc->func = dataMemoryContextCallbackFunction;
-    mcc->arg = data;
-    MemoryContextRegisterResetCallback(CurrentMemoryContext, mcc);
-#endif
-    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, file)) {
+    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, file, &err)) {
+        case MUSTACH_OK: break;
         case MUSTACH_ERROR_SYSTEM: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
         case MUSTACH_ERROR_UNEXPECTED_END: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
         case MUSTACH_ERROR_EMPTY_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_EMPTY_TAG"))); break;
@@ -79,12 +65,12 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         case MUSTACH_ERROR_ITEM_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_ITEM_NOT_FOUND"))); break;
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
         case MUSTACH_ERROR_UNDEFINED_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNDEFINED_TAG"))); break;
+        default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("%s", err))); break;
     }
     switch (PG_NARGS()) {
         case 2:
-            output = cstring_to_text_with_len(*data, len);
-            free(*data);
-            *data = NULL;
+            output = cstring_to_text_with_len(data, len);
+            free(data);
             PG_RETURN_TEXT_P(output);
         case 3: PG_RETURN_BOOL(true);
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
