@@ -28,7 +28,6 @@ EXTENSION(pg_mustach_with_singledot) { flags |= Mustach_With_SingleDot; PG_RETUR
 
 typedef struct {
     char *data;
-    FILE *file;
 } data_file;
 
 #if PG_VERSION_NUM >= 90500
@@ -36,13 +35,12 @@ static void dfMemoryContextCallbackFunction(void *arg) {
     data_file *df = arg;
     if (df->data) free(df->data);
     df->data = NULL;
-//    if (df->file) fclose(df->file);
-//    df->file = NULL;
 }
 #endif
 
 static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file)) {
     data_file *df = palloc0(sizeof(*df));
+    FILE *file;
 #if PG_VERSION_NUM >= 90500
     struct MemoryContextCallback *mcc = palloc0(sizeof(*mcc));
 #endif
@@ -56,13 +54,13 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     template = DatumGetTextP(PG_GETARG_DATUM(1));
     switch (PG_NARGS()) {
         case 2: {
-            if (!(df->file = open_memstream(&df->data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
+            if (!(file = open_memstream(&df->data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
         } break;
         case 3: {
             char *name;
             if (PG_ARGISNULL(2)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument file")));
             name = TextDatumGetCString(PG_GETARG_DATUM(2));
-            if (!(df->file = fopen(name, "wb"))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!fopen")));
+            if (!(file = fopen(name, "wb"))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!fopen")));
             pfree(name);
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
@@ -72,7 +70,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     mcc->arg = df;
     MemoryContextRegisterResetCallback(CurrentMemoryContext, mcc);
 #endif
-    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, df->file)) {
+    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, file)) {
         case MUSTACH_ERROR_SYSTEM: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
         case MUSTACH_ERROR_UNEXPECTED_END: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
         case MUSTACH_ERROR_EMPTY_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_EMPTY_TAG"))); break;
@@ -86,8 +84,6 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
         case MUSTACH_ERROR_UNDEFINED_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNDEFINED_TAG"))); break;
     }
-//    fclose(df->file);
-    df->file = NULL;
     switch (PG_NARGS()) {
         case 2:
             output = cstring_to_text_with_len(df->data, len);
