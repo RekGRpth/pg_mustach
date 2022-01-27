@@ -26,20 +26,16 @@ EXTENSION(pg_mustach_with_objectiter) { flags |= Mustach_With_ObjectIter; PG_RET
 EXTENSION(pg_mustach_with_partialdatafirst) { flags |= Mustach_With_PartialDataFirst; PG_RETURN_NULL(); }
 EXTENSION(pg_mustach_with_singledot) { flags |= Mustach_With_SingleDot; PG_RETURN_NULL(); }
 
-typedef struct {
-    char *data;
-} data_file;
-
 #if PG_VERSION_NUM >= 90500
 static void dfMemoryContextCallbackFunction(void *arg) {
-    data_file *df = arg;
-    if (df->data) free(df->data);
-    df->data = NULL;
+    char **data = arg;
+    if (*data) free(*data);
+    *data = NULL;
 }
 #endif
 
 static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file)) {
-    data_file *df = palloc0(sizeof(*df));
+    char **data = palloc0(sizeof(**data));
     FILE *file;
 #if PG_VERSION_NUM >= 90500
     struct MemoryContextCallback *mcc = palloc0(sizeof(*mcc));
@@ -54,7 +50,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     template = DatumGetTextP(PG_GETARG_DATUM(1));
     switch (PG_NARGS()) {
         case 2: {
-            if (!(file = open_memstream(&df->data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
+            if (!(file = open_memstream(data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
         } break;
         case 3: {
             char *name;
@@ -67,7 +63,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     }
 #if PG_VERSION_NUM >= 90500
     mcc->func = dfMemoryContextCallbackFunction;
-    mcc->arg = df;
+    mcc->arg = data;
     MemoryContextRegisterResetCallback(CurrentMemoryContext, mcc);
 #endif
     switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, file)) {
@@ -86,9 +82,9 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     }
     switch (PG_NARGS()) {
         case 2:
-            output = cstring_to_text_with_len(df->data, len);
-            free(df->data);
-            df->data = NULL;
+            output = cstring_to_text_with_len(*data, len);
+            free(*data);
+            *data = NULL;
             PG_RETURN_TEXT_P(output);
         case 3: PG_RETURN_BOOL(true);
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
