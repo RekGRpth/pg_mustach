@@ -10,7 +10,7 @@ int pg_mustach_process_json_c(const char *template, size_t length, const char *s
     struct json_tokener *tok;
     if (!(tok = json_tokener_new())) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!json_tokener_new")));
     do root = json_tokener_parse_ex(tok, str, len); while ((error = json_tokener_get_error(tok)) == json_tokener_continue);
-    if (error != json_tokener_success) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!json_tokener_parse_ex and %s", json_tokener_error_desc(error))));
+    if (error != json_tokener_success) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!json_tokener_parse_ex"), errdetail("%s", json_tokener_error_desc(error))));
     if (json_tokener_get_parse_end(tok) < len) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("json_tokener_get_parse_end < %li", len)));
     json_tokener_free(tok);
     rc = mustach_json_c_file(template, length, root, flags, file);
