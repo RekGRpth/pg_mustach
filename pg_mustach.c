@@ -40,8 +40,8 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     text *template;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument json")));
     if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument template")));
-    json = DatumGetTextP(PG_GETARG_DATUM(0));
-    template = DatumGetTextP(PG_GETARG_DATUM(1));
+    json = PG_GETARG_TEXT_PP(0);
+    template = PG_GETARG_TEXT_PP(1);
     switch (PG_NARGS()) {
         case 2: {
             if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
@@ -71,6 +71,8 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         case MUSTACH_ERROR_UNDEFINED_TAG: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNDEFINED_TAG"))); break;
         default: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("%s", err))); break;
     }
+    PG_FREE_IF_COPY(json, 0);
+    PG_FREE_IF_COPY(template, 1);
     switch (PG_NARGS()) {
         case 2:
             output = cstring_to_text_with_len(data, len);
