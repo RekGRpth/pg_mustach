@@ -15,14 +15,14 @@ CREATE OR REPLACE FUNCTION mustach_with_objectiter() RETURNS void AS 'MODULE_PAT
 CREATE OR REPLACE FUNCTION mustach_with_partialdatafirst() RETURNS void AS 'MODULE_PATHNAME', 'pg_mustach_with_partialdatafirst' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION mustach_with_singledot() RETURNS void AS 'MODULE_PATHNAME', 'pg_mustach_with_singledot' LANGUAGE 'c';
 
-CREATE OR REPLACE FUNCTION mustach(json JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
-CREATE OR REPLACE FUNCTION mustach(json JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach("json" JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach("json" JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
 
-CREATE OR REPLACE FUNCTION mustach_cjson(json JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_cjson' LANGUAGE 'c';
-CREATE OR REPLACE FUNCTION mustach_cjson(json JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_cjson' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach_cjson("json" JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_cjson' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach_cjson("json" JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_cjson' LANGUAGE 'c';
 
-CREATE OR REPLACE FUNCTION mustach_jansson(json JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_jansson' LANGUAGE 'c';
-CREATE OR REPLACE FUNCTION mustach_jansson(json JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_jansson' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach_jansson("json" JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_jansson' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach_jansson("json" JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_jansson' LANGUAGE 'c';
 
-CREATE OR REPLACE FUNCTION mustach_json_c(json JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
-CREATE OR REPLACE FUNCTION mustach_json_c(json JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach_json_c("json" JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION mustach_json_c("json" JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
