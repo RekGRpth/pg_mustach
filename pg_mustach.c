@@ -65,15 +65,31 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         case MUSTACH_ERROR_SYSTEM: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
         case MUSTACH_ERROR_UNEXPECTED_END: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
         case MUSTACH_ERROR_EMPTY_TAG: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_EMPTY_TAG"))); break;
+#if MUSTACH_VERSION >= 200
+        case MUSTACH_ERROR_TOO_BIG: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_BIG"))); break;
+#else
         case MUSTACH_ERROR_TAG_TOO_LONG: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TAG_TOO_LONG"))); break;
+#endif
+#if MUSTACH_VERSION >= 200
+        case MUSTACH_ERROR_BAD_DELIMITER: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_DELIMITER"))); break;
+#else
         case MUSTACH_ERROR_BAD_SEPARATORS: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_SEPARATORS"))); break;
+#endif
         case MUSTACH_ERROR_TOO_DEEP: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_DEEP"))); break;
         case MUSTACH_ERROR_CLOSING: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_CLOSING"))); break;
         case MUSTACH_ERROR_BAD_UNESCAPE_TAG: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_UNESCAPE_TAG"))); break;
         case MUSTACH_ERROR_INVALID_ITF: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_INVALID_ITF"))); break;
+#if MUSTACH_VERSION >= 200
+        case MUSTACH_ERROR_NOT_FOUND: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_NOT_FOUND"))); break;
+#else
         case MUSTACH_ERROR_ITEM_NOT_FOUND: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_ITEM_NOT_FOUND"))); break;
         case MUSTACH_ERROR_PARTIAL_NOT_FOUND: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
+#endif
         case MUSTACH_ERROR_UNDEFINED_TAG: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNDEFINED_TAG"))); break;
+        case MUSTACH_ERROR_TOO_MUCH_NESTING: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_MUCH_NESTING"))); break;
+#if MUSTACH_VERSION >= 200
+        case MUSTACH_ERROR_OUT_OF_MEMORY: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_OUT_OF_MEMORY"))); break;
+#endif
         default: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("%s", err))); break;
     }
     PG_FREE_IF_COPY(json, 0);
