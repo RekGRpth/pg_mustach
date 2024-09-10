@@ -31,6 +31,8 @@ ret:
     return rc;
 }
 #else
+#include <mustach/mustach.h>
+
 int mustach_process_json_c(const char *template, size_t length, const char *str, size_t len, int flags, FILE *file, char **err) {
     *err = "!mustach_json_c";
     fclose(file);

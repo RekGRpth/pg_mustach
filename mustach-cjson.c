@@ -16,6 +16,8 @@ ret:
     return rc;
 }
 #else
+#include <mustach/mustach.h>
+
 int mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, int flags, FILE *file, char **err) {
     *err = "!mustach_cjson";
     fclose(file);

@@ -19,6 +19,8 @@ ret:
     return rc;
 }
 #else
+#include <mustach/mustach.h>
+
 int mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, int flags, FILE *file, char **err) {
     *err = "!mustach_jansson";
     fclose(file);
