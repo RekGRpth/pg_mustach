@@ -23,6 +23,7 @@ int mustach_process_json_c(const char *template, size_t length, const char *str,
     enum json_tokener_error error = json_tokener_success;
     int rc = MUSTACH_ERROR_USER(1);
     struct json_object *root;
+    if (!len) { str = "{}"; len = 2; }
     if (!(root = json_tokener_parse_verbose_len(str, len, &error))) { *err = (char *)json_tokener_error_desc(error); goto ret; }
     rc = mustach_json_c_file(template, length, root, flags, file);
     json_object_put(root);

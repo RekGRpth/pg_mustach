@@ -11,6 +11,7 @@ int mustach_process_jansson(const char *template, size_t length, const char *buf
     static char text[JSON_ERROR_TEXT_LENGTH];
     json_error_t error;
     json_t *root;
+    if (!buflen) { buffer = "{}"; buflen = 2; }
     if (!(root = json_loadb(buffer, buflen, JSON_DECODE_ANY, &error))) { *err = strncpy(text, error.text, JSON_ERROR_TEXT_LENGTH); goto ret; }
     rc = mustach_jansson_file(template, length, root, flags, file);
     json_decref(root);

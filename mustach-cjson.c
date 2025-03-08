@@ -8,6 +8,7 @@ int mustach_process_cjson(const char *template, size_t length, const char *value
 int mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, int flags, FILE *file, char **err) {
     cJSON *root;
     int rc = MUSTACH_ERROR_USER(1);
+    if (!buffer_length) { value = "{}"; buffer_length = 2; }
     if (!(root = cJSON_ParseWithLength(value, buffer_length))) { *err = (char *)cJSON_GetErrorPtr(); goto ret; }
     rc = mustach_cJSON_file(template, length, root, flags, file);
     cJSON_Delete(root);
