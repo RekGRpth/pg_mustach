@@ -1,0 +1,4 @@
+\unset ECHO
+1|superuser can write file|t
+ERROR:  permission denied to write server file
+DETAIL:  Only superusers, or roles granted equivalent file-write privileges, may write files with mustach.

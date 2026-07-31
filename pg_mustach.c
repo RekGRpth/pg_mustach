@@ -1,8 +1,13 @@
 #include <postgres.h>
 
+#if PG_VERSION_NUM >= 110000
+#include <catalog/pg_authid.h>
+#endif
 #include <catalog/pg_type.h>
 #include <fmgr.h>
+#include <miscadmin.h>
 
+#include <utils/acl.h>
 #include <utils/builtins.h>
 #if PG_VERSION_NUM >= 160000
 #include <varatt.h>
@@ -54,6 +59,12 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         case 3: {
             char *name;
             if (PG_ARGISNULL(2)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument file")));
+#if PG_VERSION_NUM >= 110000
+            if (!has_privs_of_role(GetUserId(), ROLE_PG_WRITE_SERVER_FILES))
+#else
+            if (!superuser())
+#endif
+                ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers, or roles granted equivalent file-write privileges, may write files with mustach.")));
             name = TextDatumGetCString(PG_GETARG_DATUM(2));
             if (!(file = fopen(name, "wb"))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!fopen")));
             pfree(name);
