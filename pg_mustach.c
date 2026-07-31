@@ -43,6 +43,7 @@ EXTENSION(pg_mustach_with_singledot) { flags |= Mustach_With_SingleDot; PG_RETUR
 static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file, char **err)) {
     char *data = NULL;
     char *err;
+    char *name = NULL;
     FILE *file;
     size_t len;
     text *json;
@@ -53,11 +54,8 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
     json = PG_GETARG_TEXT_PP(0);
     template = PG_GETARG_TEXT_PP(1);
     switch (PG_NARGS()) {
-        case 2: {
-            if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
-        } break;
+        case 2: break;
         case 3: {
-            char *name;
             if (PG_ARGISNULL(2)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument file")));
 #if PG_VERSION_NUM >= 110000
             if (!has_privs_of_role(GetUserId(), ROLE_PG_WRITE_SERVER_FILES))
@@ -66,11 +64,10 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
 #endif
                 ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers, or roles granted equivalent file-write privileges, may write files with mustach.")));
             name = TextDatumGetCString(PG_GETARG_DATUM(2));
-            if (!(file = fopen(name, "wb"))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!fopen")));
-            pfree(name);
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
+    if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
     switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, file, &err)) {
         case MUSTACH_OK: break;
         case MUSTACH_ERROR_SYSTEM: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
@@ -110,7 +107,16 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
             output = cstring_to_text_with_len(data, len);
             free(data);
             PG_RETURN_TEXT_P(output);
-        case 3: PG_RETURN_BOOL(true);
+        case 3: {
+            FILE *out;
+            bool wrote;
+            if (!(out = fopen(name, "wb"))) { free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!fopen"))); }
+            pfree(name);
+            wrote = fwrite(data, 1, len, out) == len;
+            free(data);
+            if (fclose(out) || !wrote) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg(wrote ? "!fclose" : "!fwrite")));
+            PG_RETURN_BOOL(true);
+        }
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
 }
