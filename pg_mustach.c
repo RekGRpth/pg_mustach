@@ -60,7 +60,11 @@ EXTENSION(pg_mustach_jsonb) {
     text *template;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument json")));
     if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument template")));
+#if PG_VERSION_NUM >= 110000
     json = PG_GETARG_JSONB_P(0);
+#else
+    json = PG_GETARG_JSONB(0);
+#endif
     template = PG_GETARG_TEXT_PP(1);
     switch (PG_NARGS()) {
         case 2: {
@@ -71,8 +75,10 @@ EXTENSION(pg_mustach_jsonb) {
             int fd;
             int open_errno;
             if (PG_ARGISNULL(2)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument file")));
-#if PG_VERSION_NUM >= 110000
+#if PG_VERSION_NUM >= 140000
             if (!has_privs_of_role(GetUserId(), ROLE_PG_WRITE_SERVER_FILES))
+#elif PG_VERSION_NUM >= 110000
+            if (!has_privs_of_role(GetUserId(), DEFAULT_ROLE_WRITE_SERVER_FILES))
 #else
             if (!superuser())
 #endif

@@ -15,6 +15,26 @@
 
 int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int flags, FILE *file, char **err);
 
+/* JsonContainerSize/IsObject/IsArray/IsScalar were only added in PG10; the
+ * underlying header field and flag masks are stable since jsonb's PG9.4
+ * introduction, so reimplement them portably instead of relying on those. */
+#define PGM_JB_SIZE(jc)       ((jc)->header & JB_CMASK)
+#define PGM_JB_IS_SCALAR(jc)  (((jc)->header & JB_FSCALAR) != 0)
+#define PGM_JB_IS_OBJECT(jc)  (((jc)->header & JB_FOBJECT) != 0)
+#define PGM_JB_IS_ARRAY(jc)   (((jc)->header & JB_FARRAY) != 0)
+
+static JsonbValue *jb_lookup_key(JsonbContainer *c, const char *name, int namelen) {
+#if PG_VERSION_NUM >= 130000
+    return getKeyJsonValueFromContainer(c, name, namelen, NULL);
+#else
+    JsonbValue key;
+    key.type = jbvString;
+    key.val.string.val = (char *) name;
+    key.val.string.len = namelen;
+    return findJsonbValueFromContainer(c, JB_FOBJECT, &key);
+#endif
+}
+
 typedef struct {
     enum { SEL_NULL, SEL_STRING, SEL_NUMERIC, SEL_BOOL, SEL_CONTAINER } kind;
     union {
@@ -66,7 +86,7 @@ static jbsel get_array_item(JsonbContainer *c, int i) {
 }
 
 static bool get_object_field(JsonbContainer *c, const char *name, int namelen, jbsel *out) {
-    JsonbValue *v = getKeyJsonValueFromContainer(c, name, namelen, NULL);
+    JsonbValue *v = jb_lookup_key(c, name, namelen);
     if (!v) return false;
     *out = from_jsonbvalue(v);
     return true;
@@ -92,7 +112,7 @@ static int start(void *closure) {
     e->depth = 0;
     e->stack[0].container = NULL;
     e->stack[0].is_objiter = false;
-    e->stack[0].value = JsonContainerIsScalar(rc) ? get_array_item(rc, 0) : (jbsel) { .kind = SEL_CONTAINER, .v.container = rc };
+    e->stack[0].value = PGM_JB_IS_SCALAR(rc) ? get_array_item(rc, 0) : (jbsel) { .kind = SEL_CONTAINER, .v.container = rc };
     e->selection = e->stack[0].value;
     return MUSTACH_OK;
 }
@@ -132,7 +152,7 @@ static int sel(void *closure, const char *name) {
     } else {
         for (i = e->depth; i >= 0 && !r; i--) {
             jbsel cur = e->stack[i].value;
-            if (cur.kind == SEL_CONTAINER && JsonContainerIsObject(cur.v.container))
+            if (cur.kind == SEL_CONTAINER && PGM_JB_IS_OBJECT(cur.v.container))
                 r = get_object_field(cur.v.container, name, (int) strlen(name), &o);
         }
         if (!r) o = null_sel();
@@ -147,12 +167,12 @@ static int subsel(void *closure, const char *name) {
     int r = 0;
     if (e->selection.kind == SEL_CONTAINER) {
         JsonbContainer *c = e->selection.v.container;
-        if (JsonContainerIsObject(c))
+        if (PGM_JB_IS_OBJECT(c))
             r = get_object_field(c, name, (int) strlen(name), &o);
-        else if (JsonContainerIsArray(c) && *name) {
+        else if (PGM_JB_IS_ARRAY(c) && *name) {
             char *end;
             long idx = strtol(name, &end, 10);
-            if (!*end && idx >= 0 && idx < JsonContainerSize(c)) {
+            if (!*end && idx >= 0 && idx < PGM_JB_SIZE(c)) {
                 o = get_array_item(c, (int) idx);
                 r = 1;
             }
@@ -177,21 +197,21 @@ static int enter(void *closure, int objiter) {
     f->container = NULL;
 
     if (objiter) {
-        if (o.kind != SEL_CONTAINER || !JsonContainerIsObject(o.v.container) || JsonContainerSize(o.v.container) == 0)
+        if (o.kind != SEL_CONTAINER || !PGM_JB_IS_OBJECT(o.v.container) || PGM_JB_SIZE(o.v.container) == 0)
             goto not_entering;
         f->iter = JsonbIteratorInit(o.v.container);
         JsonbIteratorNext(&f->iter, &tmp, false); /* consume WJB_BEGIN_OBJECT */
         f->is_objiter = true;
         if (!objiter_advance(f))
             goto not_entering;
-    } else if (o.kind == SEL_CONTAINER && JsonContainerIsArray(o.v.container)) {
-        if (JsonContainerSize(o.v.container) == 0)
+    } else if (o.kind == SEL_CONTAINER && PGM_JB_IS_ARRAY(o.v.container)) {
+        if (PGM_JB_SIZE(o.v.container) == 0)
             goto not_entering;
         f->container = o.v.container;
         f->index = 0;
-        f->count = JsonContainerSize(o.v.container);
+        f->count = PGM_JB_SIZE(o.v.container);
         f->value = get_array_item(f->container, 0);
-    } else if ((o.kind == SEL_CONTAINER && JsonContainerIsObject(o.v.container) && JsonContainerSize(o.v.container) > 0)
+    } else if ((o.kind == SEL_CONTAINER && PGM_JB_IS_OBJECT(o.v.container) && PGM_JB_SIZE(o.v.container) > 0)
             || (o.kind == SEL_BOOL && o.v.boolean)
             || (o.kind == SEL_STRING && o.v.string.len > 0)
             || (o.kind == SEL_NUMERIC && !numeric_is_zero(o.v.numeric))) {
