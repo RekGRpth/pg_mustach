@@ -6,8 +6,7 @@
 \set ON_ERROR_ROLLBACK 1
 \set ON_ERROR_STOP true
 BEGIN;
-CREATE EXTENSION pg_mustach VERSION '1.0';
-ALTER EXTENSION pg_mustach UPDATE TO '2.0';
+CREATE EXTENSION pg_mustach;
 SELECT 1, 'colon flag value', mustach_with_colon();
 SELECT 2, 'compare flag value', mustach_with_compare();
 SELECT 3, 'noextensions value', mustach_with_noextensions();

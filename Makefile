@@ -1,8 +1,8 @@
 $(OBJS): Makefile
-DATA = pg_mustach--1.0.sql pg_mustach--1.0--2.0.sql pg_mustach--2.0.sql
+DATA = pg_mustach--1.0.sql pg_mustach--1.0--2.0.sql pg_mustach--2.0.sql pg_mustach--2.0--3.0.sql pg_mustach--3.0.sql
 EXTENSION = pg_mustach
 MODULE_big = $(EXTENSION)
-OBJS = $(EXTENSION).o mustach-cjson.o mustach-jansson.o mustach-json-c.o
+OBJS = $(EXTENSION).o mustach-jsonb.o
 PG_CONFIG = pg_config
 PGXS = $(shell $(PG_CONFIG) --pgxs)
 REGRESS = $(patsubst sql/%.sql,%,$(TESTS))

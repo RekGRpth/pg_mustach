@@ -15,6 +15,7 @@
 #include <utils/acl.h>
 #include <utils/builtins.h>
 #include <utils/guc.h>
+#include <utils/jsonb.h>
 #if PG_VERSION_NUM >= 160000
 #include <varatt.h>
 #endif
@@ -24,9 +25,7 @@
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
-int mustach_process_cjson(const char *template, size_t length, const char *value, size_t buffer_length, int flags, FILE *file, char **err);
-int mustach_process_jansson(const char *template, size_t length, const char *buffer, size_t buflen, int flags, FILE *file, char **err);
-int mustach_process_json_c(const char *template, size_t length, const char *str, size_t len, int flags, FILE *file, char **err);
+int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int flags, FILE *file, char **err);
 
 PG_MODULE_MAGIC;
 
@@ -51,17 +50,17 @@ EXTENSION(pg_mustach_with_objectiter) { PG_RETURN_INT32(Mustach_With_ObjectIter)
 EXTENSION(pg_mustach_with_partialdatafirst) { PG_RETURN_INT32(Mustach_With_PartialDataFirst); }
 EXTENSION(pg_mustach_with_singledot) { PG_RETURN_INT32(Mustach_With_SingleDot); }
 
-static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file, char **err)) {
+EXTENSION(pg_mustach_jsonb) {
     char *data = NULL;
     char *err = NULL;
     FILE *file;
     size_t len;
-    text *json;
+    Jsonb *json;
     text *output;
     text *template;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument json")));
     if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument template")));
-    json = PG_GETARG_TEXT_PP(0);
+    json = PG_GETARG_JSONB_P(0);
     template = PG_GETARG_TEXT_PP(1);
     switch (PG_NARGS()) {
         case 2: {
@@ -87,7 +86,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
-    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), pg_mustach_flags, file, &err)) {
+    switch (mustach_process_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), json, pg_mustach_flags, file, &err)) {
         case MUSTACH_OK: break;
         case MUSTACH_ERROR_SYSTEM: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
         case MUSTACH_ERROR_UNEXPECTED_END: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
@@ -130,7 +129,3 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
 }
-
-EXTENSION(pg_mustach_cjson) { return pg_mustach(fcinfo, mustach_process_cjson); }
-EXTENSION(pg_mustach_jansson) { return pg_mustach(fcinfo, mustach_process_jansson); }
-EXTENSION(pg_mustach_json_c) { return pg_mustach(fcinfo, mustach_process_json_c); }
