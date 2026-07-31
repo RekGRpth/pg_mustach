@@ -53,7 +53,7 @@ EXTENSION(pg_mustach_with_singledot) { PG_RETURN_INT32(Mustach_With_SingleDot); 
 
 static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file, char **err)) {
     char *data = NULL;
-    char *err;
+    char *err = NULL;
     FILE *file;
     size_t len;
     text *json;
@@ -117,7 +117,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
 #if MUSTACH_VERSION >= 200
         case MUSTACH_ERROR_OUT_OF_MEMORY: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_OUT_OF_MEMORY"))); break;
 #endif
-        default: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("%s", err))); break;
+        default: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("%s", err ? err : "unknown mustach error"))); break;
     }
     PG_FREE_IF_COPY(json, 0);
     PG_FREE_IF_COPY(template, 1);
