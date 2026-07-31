@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <unistd.h>
 
 #if PG_VERSION_NUM >= 110000
@@ -13,6 +14,7 @@
 
 #include <utils/acl.h>
 #include <utils/builtins.h>
+#include <utils/guc.h>
 #if PG_VERSION_NUM >= 160000
 #include <varatt.h>
 #endif
@@ -28,21 +30,26 @@ int mustach_process_json_c(const char *template, size_t length, const char *str,
 
 PG_MODULE_MAGIC;
 
-static int flags = Mustach_With_AllExtensions;
+static int pg_mustach_flags = Mustach_With_AllExtensions;
 
-EXTENSION(pg_mustach_with_allextensions) { flags |= Mustach_With_AllExtensions; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_colon) { flags |= Mustach_With_Colon; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_compare) { flags |= Mustach_With_Compare; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_emptytag) { flags |= Mustach_With_EmptyTag; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_equal) { flags |= Mustach_With_Equal; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_errorundefined) { flags |= Mustach_With_ErrorUndefined; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_escfirstcmp) { flags |= Mustach_With_EscFirstCmp; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_incpartial) { flags |= Mustach_With_IncPartial; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_jsonpointer) { flags |= Mustach_With_JsonPointer; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_noextensions) { flags = Mustach_With_NoExtensions; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_objectiter) { flags |= Mustach_With_ObjectIter; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_partialdatafirst) { flags |= Mustach_With_PartialDataFirst; PG_RETURN_NULL(); }
-EXTENSION(pg_mustach_with_singledot) { flags |= Mustach_With_SingleDot; PG_RETURN_NULL(); }
+void _PG_init(void);
+void _PG_init(void) {
+    DefineCustomIntVariable("pg_mustach.flags", "Sets the flags (bitmask of the values returned by mustach_with_*() functions) controlling mustach rendering.", NULL, &pg_mustach_flags, Mustach_With_AllExtensions, 0, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
+}
+
+EXTENSION(pg_mustach_with_allextensions) { PG_RETURN_INT32(Mustach_With_AllExtensions); }
+EXTENSION(pg_mustach_with_colon) { PG_RETURN_INT32(Mustach_With_Colon); }
+EXTENSION(pg_mustach_with_compare) { PG_RETURN_INT32(Mustach_With_Compare); }
+EXTENSION(pg_mustach_with_emptytag) { PG_RETURN_INT32(Mustach_With_EmptyTag); }
+EXTENSION(pg_mustach_with_equal) { PG_RETURN_INT32(Mustach_With_Equal); }
+EXTENSION(pg_mustach_with_errorundefined) { PG_RETURN_INT32(Mustach_With_ErrorUndefined); }
+EXTENSION(pg_mustach_with_escfirstcmp) { PG_RETURN_INT32(Mustach_With_EscFirstCmp); }
+EXTENSION(pg_mustach_with_incpartial) { PG_RETURN_INT32(Mustach_With_IncPartial); }
+EXTENSION(pg_mustach_with_jsonpointer) { PG_RETURN_INT32(Mustach_With_JsonPointer); }
+EXTENSION(pg_mustach_with_noextensions) { PG_RETURN_INT32(Mustach_With_NoExtensions); }
+EXTENSION(pg_mustach_with_objectiter) { PG_RETURN_INT32(Mustach_With_ObjectIter); }
+EXTENSION(pg_mustach_with_partialdatafirst) { PG_RETURN_INT32(Mustach_With_PartialDataFirst); }
+EXTENSION(pg_mustach_with_singledot) { PG_RETURN_INT32(Mustach_With_SingleDot); }
 
 static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const char *template, size_t length, const char *data, size_t len, int flags, FILE *file, char **err)) {
     char *data = NULL;
@@ -80,7 +87,7 @@ static Datum pg_mustach(FunctionCallInfo fcinfo, int (*pg_mustach_process)(const
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
-    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), flags, file, &err)) {
+    switch (pg_mustach_process(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json), pg_mustach_flags, file, &err)) {
         case MUSTACH_OK: break;
         case MUSTACH_ERROR_SYSTEM: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
         case MUSTACH_ERROR_UNEXPECTED_END: if (data) free(data); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;

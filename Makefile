@@ -1,5 +1,5 @@
 $(OBJS): Makefile
-DATA = pg_mustach--1.0.sql
+DATA = pg_mustach--1.0.sql pg_mustach--1.0--2.0.sql pg_mustach--2.0.sql
 EXTENSION = pg_mustach
 MODULE_big = $(EXTENSION)
 OBJS = $(EXTENSION).o mustach-cjson.o mustach-jansson.o mustach-json-c.o

@@ -1,0 +1,14 @@
+\unset ECHO
+1|colon flag value|1
+2|compare flag value|16
+3|noextensions value|0
+4|allextensions value|1023
+5|default flags GUC|1023
+6|colon extension enabled by default|b
+0
+7|colon extension disabled|
+17
+8|colon extension re-enabled in subtransaction|b
+9|combined flags in subtransaction|17
+10|flags reverted after rollback to savepoint|
+11|flags reverted after outer rollback|1023
