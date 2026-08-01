@@ -1,0 +1,3 @@
+\unset ECHO
+1|section nesting one level below the runtime depth limit renders|X
+ERROR:  MUSTACH_ERROR_TOO_DEEP
