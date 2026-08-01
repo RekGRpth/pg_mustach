@@ -1,0 +1,5 @@
+\unset ECHO
+1|root object serialized via single dot, HTML-escaped|{&quot;a&quot;: 1, &quot;b&quot;: 2}
+2|root object serialized via single dot, unescaped|{"a": 1, "b": 2}
+3|root array serialized via single dot|[1, 2, 3]
+4|array element object serialized during iteration|{"x": 1} {"y": 2} 
