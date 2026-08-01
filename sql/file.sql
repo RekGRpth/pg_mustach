@@ -18,6 +18,6 @@ RESET ROLE;
 \set ON_ERROR_STOP false
 SELECT 3, 'cannot overwrite existing file', mustach('{"a":"c"}', '{{a}}', '/tmp/pg_mustach_test_allowed.txt');
 \set ON_ERROR_STOP true
-SELECT 4, 'existing file content untouched', pg_read_file('/tmp/pg_mustach_test_allowed.txt');
+\! printf '4|existing file content untouched|%s\n' "$(cat /tmp/pg_mustach_test_allowed.txt)"
 ROLLBACK;
 \! rm -f /tmp/pg_mustach_test_allowed.txt /tmp/pg_mustach_test_denied.txt
