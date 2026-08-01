@@ -5,7 +5,7 @@
 \pset pager off
 \set ON_ERROR_ROLLBACK 1
 \set ON_ERROR_STOP true
-\! rm -f /tmp/pg_mustach_test_allowed.txt /tmp/pg_mustach_test_denied.txt
+\! rm -f /tmp/pg_mustach_test_allowed.txt /tmp/pg_mustach_test_denied.txt /tmp/pg_mustach_test_debris.txt
 BEGIN;
 CREATE EXTENSION pg_mustach;
 SELECT 1, 'superuser can write new file', mustach('{"a":"b"}', '{{a}}', '/tmp/pg_mustach_test_allowed.txt');
@@ -19,5 +19,10 @@ RESET ROLE;
 SELECT 3, 'cannot overwrite existing file', mustach('{"a":"c"}', '{{a}}', '/tmp/pg_mustach_test_allowed.txt');
 \set ON_ERROR_STOP true
 \! printf '4|existing file content untouched|%s\n' "$(cat /tmp/pg_mustach_test_allowed.txt)"
+\set ON_ERROR_STOP false
+SELECT 5, 'failing render does not create debris file', mustach('{"a":"b"}', '{{#unclosed}}', '/tmp/pg_mustach_test_debris.txt');
+\set ON_ERROR_STOP true
+\! test -e /tmp/pg_mustach_test_debris.txt && echo '6|debris file left behind|yes' || echo '6|debris file left behind|no'
+SELECT 7, 'retry with fixed template succeeds', mustach('{"a":"b"}', '{{a}}', '/tmp/pg_mustach_test_debris.txt');
 ROLLBACK;
-\! rm -f /tmp/pg_mustach_test_allowed.txt /tmp/pg_mustach_test_denied.txt
+\! rm -f /tmp/pg_mustach_test_allowed.txt /tmp/pg_mustach_test_denied.txt /tmp/pg_mustach_test_debris.txt

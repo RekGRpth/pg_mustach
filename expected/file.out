@@ -4,3 +4,6 @@ ERROR:  permission denied to write server file
 DETAIL:  Only superusers, or roles granted equivalent file-write privileges, may write files with mustach.
 ERROR:  mustach target file already exists
 4|existing file content untouched|b
+ERROR:  MUSTACH_ERROR_UNEXPECTED_END
+6|debris file left behind|no
+7|retry with fixed template succeeds|t
