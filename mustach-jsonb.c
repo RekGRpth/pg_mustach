@@ -19,7 +19,6 @@ int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int 
  * these builtins ourselves rather than chase down whichever header
  * happens to expose them in a given version. */
 extern Datum numeric_out(PG_FUNCTION_ARGS);
-extern Datum numeric_float8(PG_FUNCTION_ARGS);
 
 /* JsonContainerSize/IsObject/IsArray/IsScalar were only added in PG10; the
  * underlying header field and flag masks are stable since jsonb's PG9.4
@@ -98,8 +97,22 @@ static bool get_object_field(JsonbContainer *c, const char *name, int namelen, j
     return true;
 }
 
+/* numeric_float8() hard-errors on overflow, which would abort rendering
+ * for jsonb numbers outside double's range even though such numbers are
+ * trivially non-zero. Go through numeric_out()'s text form instead:
+ * strtod() saturates to +/-HUGE_VAL on overflow rather than erroring. */
+static double numeric_to_double(Numeric n) {
+    return strtod(DatumGetCString(DirectFunctionCall1(numeric_out, NumericGetDatum(n))), NULL);
+}
+
+/* Exact regardless of magnitude, unlike going through double: a number
+ * that underflows to 0.0 (e.g. 1e-400) is still non-zero. */
 static bool numeric_is_zero(Numeric n) {
-    return DatumGetFloat8(DirectFunctionCall1(numeric_float8, NumericGetDatum(n))) == 0.0;
+    const char *s = DatumGetCString(DirectFunctionCall1(numeric_out, NumericGetDatum(n)));
+    for (; *s; s++)
+        if (*s >= '1' && *s <= '9')
+            return false;
+    return true;
 }
 
 static bool objiter_advance(struct frame *f) {
@@ -131,7 +144,7 @@ static int compare(void *closure, const char *value) {
     int c;
     switch (o->kind) {
     case SEL_NUMERIC:
-        d = DatumGetFloat8(DirectFunctionCall1(numeric_float8, NumericGetDatum(o->v.numeric))) - atof(value);
+        d = numeric_to_double(o->v.numeric) - atof(value);
         return d < 0 ? -1 : d > 0 ? 1 : 0;
     case SEL_STRING:
         vlen = strlen(value);
