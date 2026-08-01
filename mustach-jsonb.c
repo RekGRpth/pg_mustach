@@ -2,7 +2,6 @@
 
 #include <lib/stringinfo.h>
 #include <utils/builtins.h>
-#include <utils/fmgrprotos.h>
 #include <utils/jsonb.h>
 #include <utils/numeric.h>
 
@@ -14,6 +13,13 @@
 #include <stdlib.h>
 
 int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int flags, FILE *file, char **err);
+
+/* Not declared portably across PG versions (utils/fmgrprotos.h, which
+ * carries these from PG12 on, doesn't exist before that): declare
+ * these builtins ourselves rather than chase down whichever header
+ * happens to expose them in a given version. */
+extern Datum numeric_out(PG_FUNCTION_ARGS);
+extern Datum numeric_float8(PG_FUNCTION_ARGS);
 
 /* JsonContainerSize/IsObject/IsArray/IsScalar were only added in PG10; the
  * underlying header field and flag masks are stable since jsonb's PG9.4
