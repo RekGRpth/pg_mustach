@@ -1,0 +1,23 @@
+\unset ECHO
+1|emptytag flag value|2
+2|equal flag value|8
+3|errorundefined flag value|1024
+4|escfirstcmp flag value|256
+5|incpartial flag value|128
+6|jsonpointer flag value|32
+7|objectiter flag value|64
+8|partialdatafirst flag value|512
+9|singledot flag value|4
+0
+ERROR:  MUSTACH_ERROR_EMPTY_TAG
+1023
+ERROR:  MUSTACH_ERROR_BAD_DELIMITER
+ERROR:  MUSTACH_ERROR_BAD_UNESCAPE_TAG
+ERROR:  MUSTACH_ERROR_CLOSING
+ERROR:  MUSTACH_ERROR_CLOSING
+2047
+ERROR:  MUSTACH_ERROR_UNDEFINED_TAG
+1023
+ERROR:  MUSTACH_ERROR_TOO_DEEP
+ERROR:  MUSTACH_ERROR_TOO_MUCH_NESTING
+18|missing partial renders empty rather than erroring|
