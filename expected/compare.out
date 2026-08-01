@@ -1,0 +1,14 @@
+\unset ECHO
+1|string equal exact match|yes
+2|string equal, matching prefix but different length|
+3|string less-than by real content divergence|yes
+4|string less-or-equal on exact match|yes
+5|string less-than by length tie-break, stored value shorter|yes
+6|string greater-than by length tie-break, stored value longer|yes
+7|empty stored string still fails the truthiness gate even when the compare matches|
+8|bool true equal true renders (compare and truthiness both pass)|yes
+9|bool false equal false does not render (compare matches but false is never truthy)|
+10|null equal null does not render (compare matches but null is never truthy)|
+11|null not equal to an arbitrary literal|
+12|container compared with greater-than always reports greater (default branch)|yes
+13|container compared with less-than never reports lesser|
