@@ -1,0 +1,8 @@
+\unset ECHO
+1|basic key/value iteration| a:1 b:true
+2|empty object iterates to nothing|[]
+3|scalar is not iterable as object|[]
+4|array is not iterable as object|[]
+5|inverted section on object iteration key|[empty]
+6|nested section reaches outer objiter key|a=1 b=2 
+7|object iteration nested inside array iteration|a:1;b:2;
