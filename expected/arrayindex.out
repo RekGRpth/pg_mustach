@@ -1,0 +1,9 @@
+\unset ECHO
+1|dotted numeric index selects array element|b
+2|out-of-range index misses|
+3|non-numeric index misses|
+4|negative index misses|
+5|trailing garbage after digits misses|
+6|chained dotted index into a nested array|y
+7|dotted index feeds section truthiness (truthy element)|yes
+8|dotted index feeds section truthiness (falsey element)|
