@@ -1,32 +1,15 @@
 CREATE EXTENSION pg_mustach;
--- Two roles: one with neither predefined role pg_mustach's C code checks
--- for, one privileged enough to satisfy has_role() on whatever server this
--- test runs against. Role names can't start with "pg_" (reserved), so use
+-- Two roles: an ordinary non-superuser, and a superuser -- pg_mustach's C
+-- code (pg_mustach_privileged()) checks superuser() directly, nothing more
+-- granular. Role names can't start with "pg_" (reserved), so use
 -- mustach_test_*.
---
--- has_role() only consults the pg_read_server_files predefined role from
--- PG 11 onward -- it doesn't exist before that, and the C code falls back
--- to a plain superuser() check instead (see the PG_VERSION_NUM guard
--- around PGMUSTACH_ROLE_READ_SERVER_FILES in pg_mustach.c). So grant the
--- role when it exists, and make mustach_test_full a superuser when it
--- doesn't -- either way it ends up satisfying whichever check has_role()
--- actually performs here.
 --
 -- Both roles need LOGIN: the pg_mustach.whitelist tests below need to \c
 -- into them directly, since ALTER ROLE ... SET only takes effect for a new
 -- connection as that role, not retroactively via SET ROLE in an
 -- already-open session.
 CREATE ROLE mustach_test_none LOGIN;
-CREATE ROLE mustach_test_full LOGIN;
-DO $$
-BEGIN
-    IF current_setting('server_version_num')::int >= 110000 THEN
-        EXECUTE 'GRANT pg_read_server_files TO mustach_test_full';
-    ELSE
-        EXECUTE 'ALTER ROLE mustach_test_full SUPERUSER';
-    END IF;
-END
-$$;
+CREATE ROLE mustach_test_full LOGIN SUPERUSER;
 --
 -- {{>name}} only falls back to reading "name" as a local file when "name"
 -- isn't found in the json data -- confirm ordinary partial resolution (and
@@ -47,8 +30,8 @@ SELECT mustach('{}', E'"{{>nonexistent_partial_name}}"');
 (1 row)
 
 --
--- Without pg_read_server_files and without a pg_mustach.whitelist, the
--- file-loading fallback must be denied.
+-- Without superuser and without a pg_mustach.whitelist, the file-loading
+-- fallback must be denied.
 --
 SET ROLE mustach_test_none;
 SELECT mustach('{}', E'{{>/etc/hostname}}');
@@ -56,13 +39,13 @@ ERROR:  permission denied to access "/etc/hostname"
 DETAIL:  whitelist does not permit this file or URL for the current role.
 RESET ROLE;
 --
--- pg_mustach.whitelist can grant mustach_test_none access despite it
--- holding no predefined role -- an explicit entry becomes its sole
--- authorization for that specific file, rather than merely narrowing an
--- already-privileged role the way it does for mustach_test_full further
--- down. Needs \c, like the mustach_test_full whitelist tests further down,
--- since ALTER ROLE ... SET doesn't apply retroactively via SET ROLE in
--- this already-open session.
+-- pg_mustach.whitelist can grant mustach_test_none access despite it not
+-- being a superuser -- an explicit entry becomes its sole authorization for
+-- that specific file, rather than merely narrowing already-privileged
+-- access the way it does for mustach_test_full further down. Needs \c, like
+-- the mustach_test_full whitelist tests further down, since ALTER ROLE ...
+-- SET doesn't apply retroactively via SET ROLE in this already-open
+-- session.
 --
 SELECT current_user AS pg_mustach_test_orig_user \gset
 ALTER ROLE mustach_test_none SET pg_mustach.whitelist = 'file:///etc/hostname';
@@ -76,20 +59,27 @@ SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS whitelist_grant
 SELECT mustach('{}', E'{{>/etc/passwd}}');
 ERROR:  permission denied to access "/etc/passwd"
 DETAIL:  whitelist does not permit this file or URL for the current role.
+--
+-- pg_mustach.whitelist is registered PGC_SUSET, so only a superuser can set
+-- it -- confirm that mustach_test_none, a genuine non-superuser, can't
+-- loosen its own scope with a plain SET.
+--
+SELECT set_config('pg_mustach.whitelist', 'file:///etc/passwd', false);
+ERROR:  permission denied to set parameter "pg_mustach.whitelist"
 \c - :pg_mustach_test_orig_user
 ALTER ROLE mustach_test_none RESET pg_mustach.whitelist;
 --
--- pg_mustach.whitelist (see the pg_whitelist submodule) adds an optional,
--- per-role restriction on top of the pg_read_server_files check above:
--- even mustach_test_full, which holds it, can be scoped down to specific
--- file:// prefixes. ALTER ROLE ... SET only takes effect for a *new*
--- connection as that role (role-level GUC defaults are applied once, in
--- InitPostgres, at backend startup) -- unlike the plain role-membership
--- check above, SET ROLE within this already-open session will NOT pick it
--- up, so exercising it means reconnecting via \c.
+-- pg_mustach.whitelist (see the pg_whitelist submodule) adds an optional
+-- restriction on top of superuser status: even mustach_test_full, which is
+-- a superuser, can be scoped down to specific file:// prefixes. ALTER
+-- ROLE ... SET only takes effect for a *new* connection as that role
+-- (role-level GUC defaults are applied once, in InitPostgres, at backend
+-- startup) -- unlike the plain role-membership check above, SET ROLE within
+-- this already-open session will NOT pick it up, so exercising it means
+-- reconnecting via \c.
 --
 --
--- Without any pg_mustach.whitelist, the predefined role alone is enough.
+-- Without any pg_mustach.whitelist, being a superuser alone is enough.
 --
 SET ROLE mustach_test_full;
 SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS role_only_nonempty;
@@ -110,28 +100,6 @@ SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS whitelist_exact
  t
 (1 row)
 
---
--- pg_mustach.whitelist is registered PGC_SUSET, so only a superuser can set
--- it -- confirm that mustach_test_full, connected directly (not merely SET
--- ROLE'd) and thus genuinely non-superuser, still can't loosen its own
--- scope with a plain SET. Wrapped in a DO block guarded by version,
--- mirroring the role setup above, because pre-PG11 mustach_test_full is
--- made an actual superuser instead of merely holding
--- pg_read_server_files, so the plain SET would legitimately succeed
--- there.
---
-DO $$
-BEGIN
-    IF current_setting('server_version_num')::int >= 110000 THEN
-        BEGIN
-            PERFORM set_config('pg_mustach.whitelist', 'file:///etc/passwd', false);
-            RAISE EXCEPTION 'mustach_test_full was able to loosen its own pg_mustach.whitelist with a plain SET';
-        EXCEPTION WHEN insufficient_privilege THEN
-            NULL;
-        END;
-    END IF;
-END
-$$;
 SELECT mustach('{}', E'{{>/etc/passwd}}');
 ERROR:  permission denied to access "/etc/passwd"
 DETAIL:  whitelist does not permit this file or URL for the current role.

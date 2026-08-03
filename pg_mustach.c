@@ -7,14 +7,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#if PG_VERSION_NUM >= 110000
-#include <catalog/pg_authid.h>
-#endif
 #include <catalog/pg_type.h>
 #include <fmgr.h>
 #include <miscadmin.h>
 
-#include <utils/acl.h>
 #include <utils/builtins.h>
 #include <utils/guc.h>
 #include <utils/jsonb.h>
@@ -34,23 +30,10 @@ int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int 
 
 PG_MODULE_MAGIC;
 
-/* Renamed from DEFAULT_ROLE_* to ROLE_PG_* in PG 14 (commit c9c41c7a337,
- * "Rename Default Roles to Predefined Roles"). */
-#if PG_VERSION_NUM >= 140000
-#define PGMUSTACH_ROLE_READ_SERVER_FILES ROLE_PG_READ_SERVER_FILES
-#elif PG_VERSION_NUM >= 110000
-#define PGMUSTACH_ROLE_READ_SERVER_FILES DEFAULT_ROLE_READ_SERVER_FILES
-#else
-#define PGMUSTACH_ROLE_READ_SERVER_FILES InvalidOid
-#endif
-
-static bool has_role(Oid role) {
-#if PG_VERSION_NUM >= 110000
-    return has_privs_of_role(GetUserId(), role);
-#else
-    (void)role;
+/* pg_whitelist's "privileged" caller is a superuser; anyone else must be
+ * granted access explicitly via pg_mustach.whitelist. */
+static bool pg_mustach_privileged(void) {
     return superuser();
-#endif
 }
 
 /* {{>name}} partials that mustach-wrap.c can't resolve from the json data
@@ -58,14 +41,13 @@ static bool has_role(Oid role) {
  * see get_partial_from_file() in mustach-wrap.c. Without this hook that
  * happens unconditionally, so any role with EXECUTE on mustach() could read
  * arbitrary server files via a crafted template, unlike the 3-arg mustach()
- * writing a file, which is already gated on pg_write_server_files. Mirrors
- * htmldoc_addfile()'s read_fileurl() in pg_htmldoc: privileged (holds
- * pg_read_server_files) callers are admitted unless pg_mustach.whitelist
- * explicitly excludes the resolved path; unprivileged callers are admitted
- * only if it explicitly includes it. */
+ * writing a file, which is already gated on superuser. Mirrors pg_curl's
+ * pg_curl_privileged(): privileged (superuser) callers are admitted unless
+ * pg_mustach.whitelist explicitly excludes the resolved path; unprivileged
+ * callers are admitted only if it explicitly includes it. */
 static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
     static char extension[] = ".mustache";
-    bool privileged = has_role(PGMUSTACH_ROLE_READ_SERVER_FILES);
+    bool privileged = pg_mustach_privileged();
     char path[PATH_MAX];
     char resolved[PATH_MAX];
     size_t length = strlen(name);
@@ -128,14 +110,8 @@ EXTENSION(pg_mustach_jsonb) {
             int fd;
             int open_errno;
             if (PG_ARGISNULL(2)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach requires argument file")));
-#if PG_VERSION_NUM >= 140000
-            if (!has_privs_of_role(GetUserId(), ROLE_PG_WRITE_SERVER_FILES))
-#elif PG_VERSION_NUM >= 110000
-            if (!has_privs_of_role(GetUserId(), DEFAULT_ROLE_WRITE_SERVER_FILES))
-#else
             if (!superuser())
-#endif
-                ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers, or roles granted equivalent file-write privileges, may write files with mustach.")));
+                ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers may write files with mustach.")));
             name = TextDatumGetCString(PG_GETARG_DATUM(2));
             fd = open(name, O_WRONLY | O_CREAT | O_EXCL, 0666);
             open_errno = errno;

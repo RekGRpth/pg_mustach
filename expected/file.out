@@ -1,7 +1,7 @@
 \unset ECHO
 1|superuser can write new file|t
 ERROR:  permission denied to write server file
-DETAIL:  Only superusers, or roles granted equivalent file-write privileges, may write files with mustach.
+DETAIL:  Only superusers may write files with mustach.
 ERROR:  mustach target file already exists
 4|existing file content untouched|b
 ERROR:  MUSTACH_ERROR_UNEXPECTED_END
