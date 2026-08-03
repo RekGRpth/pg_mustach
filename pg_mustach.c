@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #if PG_VERSION_NUM >= 110000
@@ -21,7 +23,10 @@
 #endif
 
 #include <mustach/mustach.h>
+#include <mustach/mustach-helpers.h>
 #include <mustach/mustach-wrap.h>
+
+#include "pg_whitelist.h"
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
@@ -29,11 +34,59 @@ int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int 
 
 PG_MODULE_MAGIC;
 
+/* Renamed from DEFAULT_ROLE_* to ROLE_PG_* in PG 14 (commit c9c41c7a337,
+ * "Rename Default Roles to Predefined Roles"). */
+#if PG_VERSION_NUM >= 140000
+#define PGMUSTACH_ROLE_READ_SERVER_FILES ROLE_PG_READ_SERVER_FILES
+#elif PG_VERSION_NUM >= 110000
+#define PGMUSTACH_ROLE_READ_SERVER_FILES DEFAULT_ROLE_READ_SERVER_FILES
+#else
+#define PGMUSTACH_ROLE_READ_SERVER_FILES InvalidOid
+#endif
+
+static bool has_role(Oid role) {
+#if PG_VERSION_NUM >= 110000
+    return has_privs_of_role(GetUserId(), role);
+#else
+    (void)role;
+    return superuser();
+#endif
+}
+
+/* {{>name}} partials that mustach-wrap.c can't resolve from the json data
+ * fall back to reading "name" (and "name.mustache") as a local file path --
+ * see get_partial_from_file() in mustach-wrap.c. Without this hook that
+ * happens unconditionally, so any role with EXECUTE on mustach() could read
+ * arbitrary server files via a crafted template, unlike the 3-arg mustach()
+ * writing a file, which is already gated on pg_write_server_files. Mirrors
+ * htmldoc_addfile()'s read_fileurl() in pg_htmldoc: privileged (holds
+ * pg_read_server_files) callers are admitted unless pg_mustach.whitelist
+ * explicitly excludes the resolved path; unprivileged callers are admitted
+ * only if it explicitly includes it. */
+static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
+    static char extension[] = ".mustache";
+    bool privileged = has_role(PGMUSTACH_ROLE_READ_SERVER_FILES);
+    char path[PATH_MAX];
+    char resolved[PATH_MAX];
+    size_t length = strlen(name);
+    if (length + sizeof extension > sizeof path) return MUSTACH_ERROR_TOO_BIG;
+    memcpy(path, name, length);
+    path[length] = 0;
+    if (!realpath(path, resolved)) {
+        memcpy(&path[length], extension, sizeof extension);
+        if (!realpath(path, resolved)) return MUSTACH_ERROR_NOT_FOUND;
+    }
+    pg_whitelist_check_local(name, resolved, privileged);
+    return mustach_read_file(path, sbuf) == MUSTACH_OK ? MUSTACH_OK : MUSTACH_ERROR_NOT_FOUND;
+}
+
 static int pg_mustach_flags = Mustach_With_AllExtensions;
 
 void _PG_init(void);
 void _PG_init(void) {
     DefineCustomIntVariable("pg_mustach.flags", "Sets the flags (bitmask of the values returned by mustach_with_*() functions) controlling mustach rendering.", NULL, &pg_mustach_flags, Mustach_With_AllExtensions, 0, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
+    pg_whitelist_init("pg_mustach.whitelist");
+    mustach_wrap_get_partial = pg_mustach_get_partial;
 }
 
 EXTENSION(pg_mustach_with_allextensions) { PG_RETURN_INT32(Mustach_With_AllExtensions); }

@@ -1,0 +1,9 @@
+*.o
+*.bc
+*.so
+.deps/
+.vscode/
+results/
+regression.diffs
+regression.out
+log/
