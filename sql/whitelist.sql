@@ -60,7 +60,7 @@ SELECT current_user AS pg_mustach_test_orig_user \gset
 ALTER ROLE mustach_test_none SET pg_mustach.whitelist = 'file:///etc/hostname';
 \c - mustach_test_none
 
-SELECT mustach('{}', E'{{>/etc/hostname}}');
+SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS whitelist_grants_unprivileged_nonempty;
 SELECT mustach('{}', E'{{>/etc/passwd}}');
 
 \c - :pg_mustach_test_orig_user
@@ -81,7 +81,7 @@ ALTER ROLE mustach_test_none RESET pg_mustach.whitelist;
 -- Without any pg_mustach.whitelist, the predefined role alone is enough.
 --
 SET ROLE mustach_test_full;
-SELECT mustach('{}', E'{{>/etc/hostname}}');
+SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS role_only_nonempty;
 RESET ROLE;
 
 --
@@ -90,7 +90,7 @@ RESET ROLE;
 ALTER ROLE mustach_test_full SET pg_mustach.whitelist = 'file:///etc/hostname';
 \c - mustach_test_full
 
-SELECT mustach('{}', E'{{>/etc/hostname}}');
+SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS whitelist_exact_match_nonempty;
 
 --
 -- pg_mustach.whitelist is registered PGC_SUSET, so only a superuser can set
