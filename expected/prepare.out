@@ -5,3 +5,7 @@
 4|forget removes a known handle|t
 ERROR:  unknown prepared mustach template -1
 6|forget on an already-unknown handle returns false|f
+7|render can write the result to a server file instead of returning it|t
+8|file content written by render|b
+ERROR:  permission denied to write server file
+DETAIL:  Only superusers may write files with mustach_render.

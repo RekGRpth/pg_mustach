@@ -53,6 +53,9 @@ SELECT mustach_forget(:id);
 - `mustach_prepare(template text) RETURNS bigint` — parses `template` and returns a handle.
 - `mustach_render(id bigint, json jsonb) RETURNS text` — renders the prepared template
   identified by `id` against `json`.
+- `mustach_render(id bigint, json jsonb, file text) RETURNS bool` — same, but writes the result
+  to `file` on the server instead of returning it, same restrictions as the 3-argument `mustach()`
+  above (superuser only).
 - `mustach_forget(id bigint) RETURNS bool` — releases a prepared template, returning whether
   `id` was still known. Prepared templates are backend-local (not visible from other sessions)
   and live until forgotten or the session ends, so long-lived sessions that keep preparing

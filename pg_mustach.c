@@ -225,6 +225,7 @@ EXTENSION(pg_mustach_render) {
     pg_mustach_prepared *entry;
     bool found;
     char *data = NULL;
+    char *name = NULL;
     size_t len;
     FILE *file;
     text *output;
@@ -235,17 +236,40 @@ EXTENSION(pg_mustach_render) {
     json = PG_GETARG_JSONB_P(1);
     entry = hash_search(pg_mustach_prepared_hash_get(), &id, HASH_FIND, &found);
     if (!found) ereport(ERROR, (errcode(ERRCODE_UNDEFINED_OBJECT), errmsg("unknown prepared mustach template " INT64_FORMAT, id)));
-    if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
+    switch (PG_NARGS()) {
+        case 2: {
+            if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
+        } break;
+        case 3: {
+            int fd;
+            int open_errno;
+            if (PG_ARGISNULL(2)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument file")));
+            if (!superuser())
+                ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers may write files with mustach_render.")));
+            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            fd = open(name, O_WRONLY | O_CREAT | O_EXCL, 0666);
+            open_errno = errno;
+            if (fd < 0) ereport(ERROR, (errcode(open_errno == EEXIST ? ERRCODE_DUPLICATE_FILE : ERRCODE_INTERNAL_ERROR), errmsg(open_errno == EEXIST ? "mustach target file already exists" : "!open")));
+            if (!(file = fdopen(fd, "wb"))) { close(fd); unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!fdopen"))); }
+        } break;
+        default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
+    }
     rc = mustach_render_jsonb(entry->templ, json, pg_mustach_flags, file);
     fclose(file);
     if (rc != MUSTACH_OK) {
         if (data) free(data);
+        if (name) unlink(name);
         pg_mustach_check(rc, NULL);
     }
     PG_FREE_IF_COPY(json, 1);
-    output = cstring_to_text_with_len(data, len);
-    free(data);
-    PG_RETURN_TEXT_P(output);
+    switch (PG_NARGS()) {
+        case 2:
+            output = cstring_to_text_with_len(data, len);
+            free(data);
+            PG_RETURN_TEXT_P(output);
+        case 3: if (name) pfree(name); PG_RETURN_BOOL(true);
+        default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
+    }
 }
 
 EXTENSION(pg_mustach_forget) {
