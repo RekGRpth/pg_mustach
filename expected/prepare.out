@@ -1,11 +1,20 @@
 \unset ECHO
-1|prepare returns a handle
-2|one prepared template renders many different jsonb values|<ul><li>Yehuda Katz</li></ul>
-3|same prepared template, second jsonb value|<ul><li>Carl Lerche</li><li>Alan Johnson</li></ul>
-4|forget removes a known handle|t
-ERROR:  unknown prepared mustach template -1
-6|forget on an already-unknown handle returns false|f
-7|render can write the result to a server file instead of returning it|t
-8|file content written by render|b
+
+1|render with no tplname uses the unnamed default slot|unnamed
+
+2|named template renders one jsonb value|<ul><li>Yehuda Katz</li></ul>
+3|same named template, second jsonb value|<ul><li>Carl Lerche</li><li>Alan Johnson</li></ul>
+
+4|re-preparing an existing tplname replaces it rather than leaking the old one|fresh
+5|forget removes a known tplname|t
+6|forget on an already-unknown tplname returns false|f
+ERROR:  unknown prepared mustach template "people"
+ERROR:  unknown prepared mustach template "doesnotexist"
+
+9|render can write the result to a server file instead of returning it|t
+10|file content written by render|b
 ERROR:  permission denied to write server file
 DETAIL:  Only superusers may write files with mustach_render.
+12|forget on the unnamed default slot returns true once|t
+13|forget on the already-empty unnamed default slot returns false|f
+ERROR:  no prepared mustach template

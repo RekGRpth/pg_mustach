@@ -89,28 +89,51 @@ EXTENSION(pg_mustach_with_objectiter) { PG_RETURN_INT32(Mustach_With_ObjectIter)
 EXTENSION(pg_mustach_with_partialdatafirst) { PG_RETURN_INT32(Mustach_With_PartialDataFirst); }
 EXTENSION(pg_mustach_with_singledot) { PG_RETURN_INT32(Mustach_With_SingleDot); }
 
-/* Backend-local cache of templates parsed by mustach_prepare(), keyed by the
- * id returned to the caller. Handles are session-scoped, same trust model
- * as e.g. dblink connection handles: not persisted, not shared across
- * backends, live until mustach_forget() or backend exit. */
+/* Backend-local cache of templates parsed by mustach_prepare(), keyed by
+ * tplname the same way pg_curl keys its named connections by conname: a
+ * NULL tplname addresses a single unnamed default slot (mirroring
+ * pg_curl's static "pg_curl" connection), any other tplname addresses an
+ * entry in this hash. Session-scoped, same trust model as pg_curl's
+ * connections: not persisted, not shared across backends, live until
+ * mustach_forget() or backend exit. */
 typedef struct {
-    int64 id;
+    NameData tplname; // !!! always first !!! //
     mustach_template_t *templ;
 } pg_mustach_prepared;
 
 static HTAB *pg_mustach_prepared_hash = NULL;
-static int64 pg_mustach_next_id = 1;
+static mustach_template_t *pg_mustach_default_templ = NULL;
 
 static HTAB *pg_mustach_prepared_hash_get(void) {
     if (!pg_mustach_prepared_hash) {
         HASHCTL ctl;
         memset(&ctl, 0, sizeof(ctl));
-        ctl.keysize = sizeof(int64);
+        ctl.keysize = sizeof(NameData);
         ctl.entrysize = sizeof(pg_mustach_prepared);
-        pg_mustach_prepared_hash = hash_create("pg_mustach prepared templates", 16, &ctl, HASH_ELEM | HASH_BLOBS);
+#if PG_VERSION_NUM >= 140000
+        pg_mustach_prepared_hash = hash_create("pg_mustach prepared templates", 16, &ctl, HASH_ELEM | HASH_STRINGS);
+#else
+        pg_mustach_prepared_hash = hash_create("pg_mustach prepared templates", 16, &ctl, HASH_ELEM);
+#endif
     }
     return pg_mustach_prepared_hash;
 }
+
+/* Resolve tplname (NULL for the unnamed default slot) to its prepared
+ * template, erroring if none is prepared there yet. */
+static mustach_template_t *pg_mustach_prepared_get(NameData *tplname) {
+    pg_mustach_prepared *entry;
+    bool found;
+    if (!tplname) {
+        if (!pg_mustach_default_templ) ereport(ERROR, (errcode(ERRCODE_UNDEFINED_OBJECT), errmsg("no prepared mustach template")));
+        return pg_mustach_default_templ;
+    }
+    entry = hash_search(pg_mustach_prepared_hash_get(), NameStr(*tplname), HASH_FIND, &found);
+    if (!found) ereport(ERROR, (errcode(ERRCODE_UNDEFINED_OBJECT), errmsg("unknown prepared mustach template \"%s\"", NameStr(*tplname))));
+    return entry->templ;
+}
+
+#define PG_TPLNAME(arg) (PG_ARGISNULL(arg) ? NULL : PG_GETARG_NAME(arg))
 
 static void pg_mustach_check(int rc, const char *err) {
     switch (rc) {
@@ -204,49 +227,51 @@ EXTENSION(pg_mustach_jsonb) {
 EXTENSION(pg_mustach_prepare) {
     text *template;
     mustach_template_t *templ;
-    pg_mustach_prepared *entry;
-    bool found;
-    int64 id;
+    NameData *tplname;
     int rc;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_prepare requires argument template")));
     template = PG_GETARG_TEXT_PP(0);
+    tplname = PG_TPLNAME(1);
     rc = mustach_prepare_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), pg_mustach_flags, &templ);
     if (rc != MUSTACH_OK) pg_mustach_check(rc, NULL);
     PG_FREE_IF_COPY(template, 0);
-    id = pg_mustach_next_id++;
-    entry = hash_search(pg_mustach_prepared_hash_get(), &id, HASH_ENTER, &found);
-    entry->templ = templ;
-    PG_RETURN_INT64(id);
+    if (!tplname) {
+        if (pg_mustach_default_templ) mustach_destroy_jsonb(pg_mustach_default_templ);
+        pg_mustach_default_templ = templ;
+    } else {
+        pg_mustach_prepared *entry;
+        bool found;
+        entry = hash_search(pg_mustach_prepared_hash_get(), NameStr(*tplname), HASH_ENTER, &found);
+        if (found) mustach_destroy_jsonb(entry->templ);
+        entry->templ = templ;
+    }
+    PG_RETURN_VOID();
 }
 
 EXTENSION(pg_mustach_render) {
-    int64 id;
     Jsonb *json;
-    pg_mustach_prepared *entry;
-    bool found;
+    mustach_template_t *templ;
     char *data = NULL;
     char *name = NULL;
     size_t len;
     FILE *file;
     text *output;
     int rc;
-    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument id")));
-    if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument json")));
-    id = PG_GETARG_INT64(0);
-    json = PG_GETARG_JSONB_P(1);
-    entry = hash_search(pg_mustach_prepared_hash_get(), &id, HASH_FIND, &found);
-    if (!found) ereport(ERROR, (errcode(ERRCODE_UNDEFINED_OBJECT), errmsg("unknown prepared mustach template " INT64_FORMAT, id)));
+    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument json")));
+    json = PG_GETARG_JSONB_P(0);
     switch (PG_NARGS()) {
         case 2: {
+            templ = pg_mustach_prepared_get(PG_TPLNAME(1));
             if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
         } break;
         case 3: {
             int fd;
             int open_errno;
-            if (PG_ARGISNULL(2)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument file")));
+            if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument file")));
+            templ = pg_mustach_prepared_get(PG_TPLNAME(2));
             if (!superuser())
                 ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers may write files with mustach_render.")));
-            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            name = TextDatumGetCString(PG_GETARG_DATUM(1));
             fd = open(name, O_WRONLY | O_CREAT | O_EXCL, 0666);
             open_errno = errno;
             if (fd < 0) ereport(ERROR, (errcode(open_errno == EEXIST ? ERRCODE_DUPLICATE_FILE : ERRCODE_INTERNAL_ERROR), errmsg(open_errno == EEXIST ? "mustach target file already exists" : "!open")));
@@ -254,14 +279,14 @@ EXTENSION(pg_mustach_render) {
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
-    rc = mustach_render_jsonb(entry->templ, json, pg_mustach_flags, file);
+    rc = mustach_render_jsonb(templ, json, pg_mustach_flags, file);
     fclose(file);
     if (rc != MUSTACH_OK) {
         if (data) free(data);
         if (name) unlink(name);
         pg_mustach_check(rc, NULL);
     }
-    PG_FREE_IF_COPY(json, 1);
+    PG_FREE_IF_COPY(json, 0);
     switch (PG_NARGS()) {
         case 2:
             output = cstring_to_text_with_len(data, len);
@@ -273,15 +298,20 @@ EXTENSION(pg_mustach_render) {
 }
 
 EXTENSION(pg_mustach_forget) {
-    int64 id;
-    pg_mustach_prepared *entry;
+    NameData *tplname = PG_TPLNAME(0);
     bool found;
-    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_forget requires argument id")));
-    id = PG_GETARG_INT64(0);
-    entry = hash_search(pg_mustach_prepared_hash_get(), &id, HASH_FIND, &found);
-    if (found) {
-        mustach_destroy_jsonb(entry->templ);
-        hash_search(pg_mustach_prepared_hash_get(), &id, HASH_REMOVE, NULL);
+    if (!tplname) {
+        found = pg_mustach_default_templ != NULL;
+        if (found) {
+            mustach_destroy_jsonb(pg_mustach_default_templ);
+            pg_mustach_default_templ = NULL;
+        }
+    } else {
+        pg_mustach_prepared *entry = hash_search(pg_mustach_prepared_hash_get(), NameStr(*tplname), HASH_FIND, &found);
+        if (found) {
+            mustach_destroy_jsonb(entry->templ);
+            hash_search(pg_mustach_prepared_hash_get(), NameStr(*tplname), HASH_REMOVE, NULL);
+        }
     }
     PG_RETURN_BOOL(found);
 }

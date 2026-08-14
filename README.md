@@ -40,26 +40,39 @@ SELECT mustach('{"people":[{"firstName":"Yehuda","lastName":"Katz"}]}',
 ### Rendering the same template many times
 
 Parsing happens on every `mustach()` call. When the same template is rendered against many
-different `jsonb` values (e.g. once per row), parse it once instead:
+different `jsonb` values (e.g. once per row), parse it once instead, giving it a name (analogous
+to `conname` in [pg_curl](https://github.com/RekGRpth/pg_curl)):
 
 ```sql
-SELECT mustach_prepare('<ul>{{#people}}<li>{{firstName}} {{lastName}}</li>{{/people}}</ul>') AS id \gset
+SELECT mustach_prepare('<ul>{{#people}}<li>{{firstName}} {{lastName}}</li>{{/people}}</ul>', 'people');
 
-SELECT mustach_render(:id, data) FROM my_table;
+SELECT mustach_render(data, 'people') FROM my_table;
 
-SELECT mustach_forget(:id);
+SELECT mustach_forget('people');
 ```
 
-- `mustach_prepare(template text) RETURNS bigint` — parses `template` and returns a handle.
-- `mustach_render(id bigint, json jsonb) RETURNS text` — renders the prepared template
-  identified by `id` against `json`.
-- `mustach_render(id bigint, json jsonb, file text) RETURNS bool` — same, but writes the result
-  to `file` on the server instead of returning it, same restrictions as the 3-argument `mustach()`
-  above (superuser only).
-- `mustach_forget(id bigint) RETURNS bool` — releases a prepared template, returning whether
-  `id` was still known. Prepared templates are backend-local (not visible from other sessions)
-  and live until forgotten or the session ends, so long-lived sessions that keep preparing
-  without forgetting will accumulate memory.
+`tplname` is optional everywhere it appears (`DEFAULT NULL`); omitting it addresses a single
+unnamed default slot, same as omitting `conname` addresses pg_curl's default connection:
+
+```sql
+SELECT mustach_prepare('{{a}}');
+SELECT mustach_render('{"a":"b"}');  -- b
+```
+
+- `mustach_prepare(template text, tplname name DEFAULT NULL) RETURNS void` — parses `template`
+  and stores it under `tplname`. Preparing again under the same `tplname` replaces whatever was
+  there.
+- `mustach_render(json jsonb, tplname name DEFAULT NULL) RETURNS text` — renders the template
+  prepared under `tplname` against `json`.
+- `mustach_render(json jsonb, file text, tplname name) RETURNS bool` — same, but writes the
+  result to `file` on the server instead of returning it, same restrictions as the 3-argument
+  `mustach()` above (superuser only). `tplname` isn't optional here (pass `NULL` explicitly for
+  the default slot) — otherwise a 2-argument call would be ambiguous between this overload with
+  `tplname` defaulted and the plain `mustach_render(json, tplname)` above.
+- `mustach_forget(tplname name DEFAULT NULL) RETURNS bool` — releases a prepared template,
+  returning whether `tplname` was still known. Prepared templates are backend-local (not visible
+  from other sessions) and live until forgotten or the session ends, so long-lived sessions that
+  keep preparing under new names without forgetting will accumulate memory.
 
 ## Extensions and flags
 
