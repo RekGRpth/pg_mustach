@@ -17,14 +17,10 @@ CREATE FUNCTION mustach_with_singledot() RETURNS int AS 'MODULE_PATHNAME', 'pg_m
 
 CREATE FUNCTION mustach_set_flags(flags int, is_local bool DEFAULT false) RETURNS int AS $$SELECT set_config('pg_mustach.flags', flags::text, is_local)::int$$ LANGUAGE 'sql';
 
-CREATE FUNCTION mustach("json" JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
-CREATE FUNCTION mustach("json" JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
+CREATE FUNCTION mustach("json" JSONB, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_jsonb' LANGUAGE 'c';
+CREATE FUNCTION mustach("json" JSONB, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_jsonb' LANGUAGE 'c';
 
-CREATE FUNCTION mustach_cjson("json" JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_cjson' LANGUAGE 'c';
-CREATE FUNCTION mustach_cjson("json" JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_cjson' LANGUAGE 'c';
-
-CREATE FUNCTION mustach_jansson("json" JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_jansson' LANGUAGE 'c';
-CREATE FUNCTION mustach_jansson("json" JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_jansson' LANGUAGE 'c';
-
-CREATE FUNCTION mustach_json_c("json" JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
-CREATE FUNCTION mustach_json_c("json" JSON, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json_c' LANGUAGE 'c';
+CREATE FUNCTION mustach_prepare(template TEXT) RETURNS BIGINT AS 'MODULE_PATHNAME', 'pg_mustach_prepare' LANGUAGE 'c';
+CREATE FUNCTION mustach_render(id BIGINT, "json" JSONB) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_render' LANGUAGE 'c';
+CREATE FUNCTION mustach_render(id BIGINT, "json" JSONB, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_render' LANGUAGE 'c';
+CREATE FUNCTION mustach_forget(id BIGINT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_forget' LANGUAGE 'c';

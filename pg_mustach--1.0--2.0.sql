@@ -15,6 +15,15 @@ DROP FUNCTION mustach_with_objectiter();
 DROP FUNCTION mustach_with_partialdatafirst();
 DROP FUNCTION mustach_with_singledot();
 
+DROP FUNCTION mustach(JSON, TEXT);
+DROP FUNCTION mustach(JSON, TEXT, TEXT);
+DROP FUNCTION mustach_cjson(JSON, TEXT);
+DROP FUNCTION mustach_cjson(JSON, TEXT, TEXT);
+DROP FUNCTION mustach_jansson(JSON, TEXT);
+DROP FUNCTION mustach_jansson(JSON, TEXT, TEXT);
+DROP FUNCTION mustach_json_c(JSON, TEXT);
+DROP FUNCTION mustach_json_c(JSON, TEXT, TEXT);
+
 CREATE FUNCTION mustach_with_allextensions() RETURNS int AS 'MODULE_PATHNAME', 'pg_mustach_with_allextensions' LANGUAGE 'c' IMMUTABLE;
 CREATE FUNCTION mustach_with_colon() RETURNS int AS 'MODULE_PATHNAME', 'pg_mustach_with_colon' LANGUAGE 'c' IMMUTABLE;
 CREATE FUNCTION mustach_with_compare() RETURNS int AS 'MODULE_PATHNAME', 'pg_mustach_with_compare' LANGUAGE 'c' IMMUTABLE;
@@ -30,3 +39,11 @@ CREATE FUNCTION mustach_with_partialdatafirst() RETURNS int AS 'MODULE_PATHNAME'
 CREATE FUNCTION mustach_with_singledot() RETURNS int AS 'MODULE_PATHNAME', 'pg_mustach_with_singledot' LANGUAGE 'c' IMMUTABLE;
 
 CREATE FUNCTION mustach_set_flags(flags int, is_local bool DEFAULT false) RETURNS int AS $$SELECT set_config('pg_mustach.flags', flags::text, is_local)::int$$ LANGUAGE 'sql';
+
+CREATE FUNCTION mustach("json" JSONB, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_jsonb' LANGUAGE 'c';
+CREATE FUNCTION mustach("json" JSONB, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_jsonb' LANGUAGE 'c';
+
+CREATE FUNCTION mustach_prepare(template TEXT) RETURNS BIGINT AS 'MODULE_PATHNAME', 'pg_mustach_prepare' LANGUAGE 'c';
+CREATE FUNCTION mustach_render(id BIGINT, "json" JSONB) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_render' LANGUAGE 'c';
+CREATE FUNCTION mustach_render(id BIGINT, "json" JSONB, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_render' LANGUAGE 'c';
+CREATE FUNCTION mustach_forget(id BIGINT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_forget' LANGUAGE 'c';

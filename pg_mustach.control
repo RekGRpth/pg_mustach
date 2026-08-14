@@ -1,4 +1,4 @@
-default_version = '4.0'
+default_version = '2.0'
 module_pathname = '$libdir/pg_mustach'
 relocatable = true
 comment = 'PostgreSQL mustach'
