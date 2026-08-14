@@ -46,4 +46,4 @@ CREATE FUNCTION mustach("json" JSONB, template TEXT, file TEXT) RETURNS BOOL AS 
 CREATE FUNCTION mustach_template(template TEXT, tplname NAME DEFAULT NULL) RETURNS VOID AS 'MODULE_PATHNAME', 'pg_mustach_template' LANGUAGE 'c';
 CREATE FUNCTION mustach_json("json" JSONB, tplname NAME DEFAULT NULL) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json' LANGUAGE 'c';
 CREATE FUNCTION mustach_json("json" JSONB, file TEXT, tplname NAME DEFAULT NULL) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json' LANGUAGE 'c';
-CREATE FUNCTION mustach_forget(tplname NAME DEFAULT NULL) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_forget' LANGUAGE 'c';
+CREATE FUNCTION mustach_free(tplname NAME DEFAULT NULL) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_free' LANGUAGE 'c';

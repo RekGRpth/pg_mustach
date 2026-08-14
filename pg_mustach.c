@@ -98,7 +98,7 @@ EXTENSION(pg_mustach_with_singledot) { PG_RETURN_INT32(Mustach_With_SingleDot); 
  * pg_curl's static "pg_curl" connection), any other tplname addresses an
  * entry in this hash. Session-scoped, same trust model as pg_curl's
  * connections: not persisted, not shared across backends, live until
- * mustach_forget() or backend exit. */
+ * mustach_free() or backend exit. */
 typedef struct {
     NameData tplname; // !!! always first !!! //
     mustach_template_t *templ;
@@ -128,7 +128,7 @@ static HTAB *pg_mustach_prepared_hash_get(void) {
  * pg_mustach.transaction, sweeps every prepared template away when that
  * context resets -- rather than one callback per template (which would need
  * MemoryContextUnregisterResetCallback to cancel cleanly on an explicit
- * mustach_forget(), and that call only exists since PG 19). Sweeping is
+ * mustach_free(), and that call only exists since PG 19). Sweeping is
  * safe to do with a plain hash_search(HASH_REMOVE) while hash_seq_search()
  * is in progress -- deleting the currently-returned element mid-scan is
  * explicitly supported by dynahash. */
@@ -348,7 +348,7 @@ EXTENSION(pg_mustach_json) {
     }
 }
 
-EXTENSION(pg_mustach_forget) {
+EXTENSION(pg_mustach_free) {
     NameData *tplname = PG_TPLNAME(0);
     bool found;
     pg_mustach_global_init();

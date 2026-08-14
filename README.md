@@ -48,7 +48,7 @@ SELECT mustach_template('<ul>{{#people}}<li>{{firstName}} {{lastName}}</li>{{/pe
 
 SELECT mustach_json(data, tplname := 'people') FROM my_table;
 
-SELECT mustach_forget('people');
+SELECT mustach_free('people');
 ```
 
 `tplname` is optional everywhere it appears (`DEFAULT NULL`); omitting it addresses a single
@@ -77,7 +77,7 @@ SELECT mustach_json('{"a":"b"}');  -- b
 > silently writes a file on the server instead of erroring. Named-argument syntax sidesteps this
 > because it requires an actual parameter called `tplname`, which the `file`-writing overload
 > only has once `file` itself is otherwise supplied.
-- `mustach_forget(tplname name DEFAULT NULL) RETURNS bool` — releases a prepared template,
+- `mustach_free(tplname name DEFAULT NULL) RETURNS bool` — releases a prepared template,
   returning whether `tplname` was still known.
 
 Prepared templates are backend-local (not visible from other sessions) and never outlive the
@@ -106,7 +106,7 @@ SELECT mustach_template('{{a}}', 'people');
 SELECT mustach_json('{"a":"b"}', tplname := 'people');  -- b, survives across statements/transactions
 ```
 
-`mustach_forget()` always removes a template immediately regardless of this setting — it doesn't
+`mustach_free()` always removes a template immediately regardless of this setting — it doesn't
 wait for a transaction boundary.
 
 ## Extensions and flags

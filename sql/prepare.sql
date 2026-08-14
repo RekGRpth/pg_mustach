@@ -15,8 +15,8 @@ SELECT 2, 'named template renders one jsonb value', mustach_json('{"people":[{"f
 SELECT 3, 'same named template, second jsonb value', mustach_json('{"people":[{"firstName":"Carl","lastName":"Lerche"},{"firstName":"Alan","lastName":"Johnson"}]}', tplname := 'people');
 SELECT mustach_template('{{b}}', 'people');
 SELECT 4, 're-preparing an existing tplname replaces it rather than leaking the old one', mustach_json('{"a":"stale","b":"fresh"}', tplname := 'people');
-SELECT 5, 'forget removes a known tplname', mustach_forget('people');
-SELECT 6, 'forget on an already-unknown tplname returns false', mustach_forget('people');
+SELECT 5, 'forget removes a known tplname', mustach_free('people');
+SELECT 6, 'forget on an already-unknown tplname returns false', mustach_free('people');
 \set ON_ERROR_STOP false
 SELECT 7, 'render on a forgotten tplname errors', mustach_json('{}', tplname := 'people');
 \set ON_ERROR_STOP true
@@ -44,8 +44,8 @@ RESET ROLE;
 --
 SELECT 12, 'a bare positional 2nd argument is the file overload, not tplname', mustach_json('{"a":"b"}', '/tmp/pg_mustach_test_prepare_positional_footgun.txt');
 \! test -e /tmp/pg_mustach_test_prepare_positional_footgun.txt && echo '13|positional call wrote a file|yes' || echo '13|positional call wrote a file|no'
-SELECT 14, 'forget on the unnamed default slot returns true once', mustach_forget();
-SELECT 15, 'forget on the already-empty unnamed default slot returns false', mustach_forget();
+SELECT 14, 'forget on the unnamed default slot returns true once', mustach_free();
+SELECT 15, 'forget on the already-empty unnamed default slot returns false', mustach_free();
 \set ON_ERROR_STOP false
 SELECT 16, 'render with no tplname errors once the default slot is empty', mustach_json('{}');
 \set ON_ERROR_STOP true

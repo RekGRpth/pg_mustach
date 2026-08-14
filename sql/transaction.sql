@@ -55,7 +55,7 @@ BEGIN;
 SELECT 7, 'and across an explicit transaction boundary', mustach_json('{"a":"c"}', tplname := 'txn_session');
 COMMIT;
 SELECT 8, 'still there after that commit', mustach_json('{"a":"d"}', tplname := 'txn_session');
-SELECT mustach_forget('txn_session');
+SELECT mustach_free('txn_session');
 \set ON_ERROR_STOP false
 SELECT 9, 'explicit forget still removes it immediately, no waiting for a transaction boundary', mustach_json('{"a":"e"}', tplname := 'txn_session');
 \set ON_ERROR_STOP true
