@@ -44,9 +44,9 @@ different `jsonb` values (e.g. once per row), parse it once instead, giving it a
 to `conname` in [pg_curl](https://github.com/RekGRpth/pg_curl)):
 
 ```sql
-SELECT mustach_prepare('<ul>{{#people}}<li>{{firstName}} {{lastName}}</li>{{/people}}</ul>', 'people');
+SELECT mustach_template('<ul>{{#people}}<li>{{firstName}} {{lastName}}</li>{{/people}}</ul>', 'people');
 
-SELECT mustach_render(data, tplname := 'people') FROM my_table;
+SELECT mustach_json(data, tplname := 'people') FROM my_table;
 
 SELECT mustach_forget('people');
 ```
@@ -55,22 +55,22 @@ SELECT mustach_forget('people');
 unnamed default slot, same as omitting `conname` addresses pg_curl's default connection:
 
 ```sql
-SELECT mustach_prepare('{{a}}');
-SELECT mustach_render('{"a":"b"}');  -- b
+SELECT mustach_template('{{a}}');
+SELECT mustach_json('{"a":"b"}');  -- b
 ```
 
-- `mustach_prepare(template text, tplname name DEFAULT NULL) RETURNS void` — parses `template`
+- `mustach_template(template text, tplname name DEFAULT NULL) RETURNS void` — parses `template`
   and stores it under `tplname`. Preparing again under the same `tplname` replaces whatever was
   there.
-- `mustach_render(json jsonb, tplname name DEFAULT NULL) RETURNS text` — renders the template
+- `mustach_json(json jsonb, tplname name DEFAULT NULL) RETURNS text` — renders the template
   prepared under `tplname` against `json`.
-- `mustach_render(json jsonb, file text, tplname name DEFAULT NULL) RETURNS bool` — same, but
+- `mustach_json(json jsonb, file text, tplname name DEFAULT NULL) RETURNS bool` — same, but
   writes the result to `file` on the server instead of returning it, same restrictions as the
   3-argument `mustach()` above (superuser only).
 
 > [!WARNING]
 > Always pass `tplname` by name (`tplname := 'people'`), never as a bare second positional
-> argument. `mustach_render(json, 'people')` looks like a call to the two-argument form above,
+> argument. `mustach_json(json, 'people')` looks like a call to the two-argument form above,
 > but PostgreSQL's overload resolution prefers `text` over `name` for an unknown-type string
 > literal, so a bare positional second argument actually resolves to the three-argument
 > `file`-writing overload — `'people'` becomes the *file path*, not the template name, and it
@@ -87,14 +87,14 @@ below.
 ### `pg_mustach.transaction`
 
 Mirroring [pg_curl](https://github.com/RekGRpth/pg_curl)'s `pg_curl.transaction`: by default,
-every `mustach_prepare()`'d template (named or the unnamed default slot) is forgotten
+every `mustach_template()`'d template (named or the unnamed default slot) is forgotten
 automatically when its transaction ends, whether by `COMMIT` or `ROLLBACK` — including the
 implicit per-statement transaction of an autocommitted call, so preparing and rendering in two
 separate top-level statements outside an explicit `BEGIN` won't see each other's state:
 
 ```sql
-SELECT mustach_prepare('{{a}}', 'people');           -- commits immediately, autocommit
-SELECT mustach_render('{"a":"b"}', tplname := 'people');  -- ERROR: unknown prepared mustach template "people"
+SELECT mustach_template('{{a}}', 'people');           -- commits immediately, autocommit
+SELECT mustach_json('{"a":"b"}', tplname := 'people');  -- ERROR: unknown prepared mustach template "people"
 ```
 
 Wrap both calls in one transaction, or turn the behavior off to get session-lifetime templates
@@ -102,8 +102,8 @@ Wrap both calls in one transaction, or turn the behavior off to get session-life
 
 ```sql
 SET pg_mustach.transaction = false;
-SELECT mustach_prepare('{{a}}', 'people');
-SELECT mustach_render('{"a":"b"}', tplname := 'people');  -- b, survives across statements/transactions
+SELECT mustach_template('{{a}}', 'people');
+SELECT mustach_json('{"a":"b"}', tplname := 'people');  -- b, survives across statements/transactions
 ```
 
 `mustach_forget()` always removes a template immediately regardless of this setting — it doesn't

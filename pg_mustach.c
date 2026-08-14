@@ -73,7 +73,7 @@ static bool pg_mustach_transaction = true;
 void _PG_init(void);
 void _PG_init(void) {
     DefineCustomIntVariable("pg_mustach.flags", "Sets the flags (bitmask of the values returned by mustach_with_*() functions) controlling mustach rendering.", NULL, &pg_mustach_flags, Mustach_With_AllExtensions, 0, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
-    DefineCustomBoolVariable("pg_mustach.transaction", "pg_mustach transaction", "Scope mustach_prepare()'d templates to the current transaction instead of the session?", &pg_mustach_transaction, true, PGC_USERSET, 0, NULL, NULL, NULL);
+    DefineCustomBoolVariable("pg_mustach.transaction", "pg_mustach transaction", "Scope mustach_template()'d templates to the current transaction instead of the session?", &pg_mustach_transaction, true, PGC_USERSET, 0, NULL, NULL, NULL);
     pg_whitelist_init("pg_mustach.whitelist");
     mustach_wrap_get_partial = pg_mustach_get_partial;
 }
@@ -92,7 +92,7 @@ EXTENSION(pg_mustach_with_objectiter) { PG_RETURN_INT32(Mustach_With_ObjectIter)
 EXTENSION(pg_mustach_with_partialdatafirst) { PG_RETURN_INT32(Mustach_With_PartialDataFirst); }
 EXTENSION(pg_mustach_with_singledot) { PG_RETURN_INT32(Mustach_With_SingleDot); }
 
-/* Backend-local cache of templates parsed by mustach_prepare(), keyed by
+/* Backend-local cache of templates parsed by mustach_template(), keyed by
  * tplname the same way pg_curl keys its named connections by conname: a
  * NULL tplname addresses a single unnamed default slot (mirroring
  * pg_curl's static "pg_curl" connection), any other tplname addresses an
@@ -273,12 +273,12 @@ EXTENSION(pg_mustach) {
     }
 }
 
-EXTENSION(pg_mustach_prepare) {
+EXTENSION(pg_mustach_template) {
     text *template;
     mustach_template_t *templ;
     NameData *tplname;
     int rc;
-    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_prepare requires argument template")));
+    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_template requires argument template")));
     pg_mustach_global_init();
     template = PG_GETARG_TEXT_PP(0);
     tplname = PG_TPLNAME(1);
@@ -298,7 +298,7 @@ EXTENSION(pg_mustach_prepare) {
     PG_RETURN_VOID();
 }
 
-EXTENSION(pg_mustach_render) {
+EXTENSION(pg_mustach_json) {
     Jsonb *json;
     mustach_template_t *templ;
     char *data = NULL;
@@ -307,7 +307,7 @@ EXTENSION(pg_mustach_render) {
     FILE *file;
     text *output;
     int rc;
-    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument json")));
+    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_json requires argument json")));
     pg_mustach_global_init();
     json = PG_GETARG_JSONB_P(0);
     switch (PG_NARGS()) {
@@ -318,10 +318,10 @@ EXTENSION(pg_mustach_render) {
         case 3: {
             int fd;
             int open_errno;
-            if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument file")));
+            if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_json requires argument file")));
             templ = pg_mustach_prepared_get(PG_TPLNAME(2));
             if (!superuser())
-                ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers may write files with mustach_render.")));
+                ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers may write files with mustach_json.")));
             name = TextDatumGetCString(PG_GETARG_DATUM(1));
             fd = open(name, O_WRONLY | O_CREAT | O_EXCL, 0666);
             open_errno = errno;

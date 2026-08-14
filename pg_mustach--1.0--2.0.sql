@@ -43,7 +43,7 @@ CREATE FUNCTION mustach_set_flags(flags int, is_local bool DEFAULT false) RETURN
 CREATE FUNCTION mustach("json" JSONB, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach' LANGUAGE 'c';
 CREATE FUNCTION mustach("json" JSONB, template TEXT, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach' LANGUAGE 'c';
 
-CREATE FUNCTION mustach_prepare(template TEXT, tplname NAME DEFAULT NULL) RETURNS VOID AS 'MODULE_PATHNAME', 'pg_mustach_prepare' LANGUAGE 'c';
-CREATE FUNCTION mustach_render("json" JSONB, tplname NAME DEFAULT NULL) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_render' LANGUAGE 'c';
-CREATE FUNCTION mustach_render("json" JSONB, file TEXT, tplname NAME DEFAULT NULL) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_render' LANGUAGE 'c';
+CREATE FUNCTION mustach_template(template TEXT, tplname NAME DEFAULT NULL) RETURNS VOID AS 'MODULE_PATHNAME', 'pg_mustach_template' LANGUAGE 'c';
+CREATE FUNCTION mustach_json("json" JSONB, tplname NAME DEFAULT NULL) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_mustach_json' LANGUAGE 'c';
+CREATE FUNCTION mustach_json("json" JSONB, file TEXT, tplname NAME DEFAULT NULL) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_json' LANGUAGE 'c';
 CREATE FUNCTION mustach_forget(tplname NAME DEFAULT NULL) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_mustach_forget' LANGUAGE 'c';
