@@ -1,0 +1,7 @@
+\unset ECHO
+1|prepare returns a handle
+2|one prepared template renders many different jsonb values|<ul><li>Yehuda Katz</li></ul>
+3|same prepared template, second jsonb value|<ul><li>Carl Lerche</li><li>Alan Johnson</li></ul>
+4|forget removes a known handle|t
+ERROR:  unknown prepared mustach template -1
+6|forget on an already-unknown handle returns false|f

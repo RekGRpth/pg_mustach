@@ -7,12 +7,16 @@
 
 #include <mustach/mustach.h>
 #include <mustach/mustach-wrap.h>
+#include <mustach/mustach-helpers.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int flags, FILE *file, char **err);
+int mustach_prepare_jsonb(const char *template, size_t length, int flags, mustach_template_t **templ);
+int mustach_render_jsonb(mustach_template_t *templ, Jsonb *root, int flags, FILE *file);
+void mustach_destroy_jsonb(mustach_template_t *templ);
 
 /* Not declared portably across PG versions (utils/fmgrprotos.h, which
  * carries these from PG12 on, doesn't exist before that): declare
@@ -333,4 +337,38 @@ int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int 
     rc = mustach_wrap_file(template, length, &mustach_jsonb_wrap_itf, &e, flags, file);
     fclose(file);
     return rc;
+}
+
+/* mustach_make_template() doesn't copy the template text: the built
+ * mustach_template_t keeps references into it (see mustach2.c's "the
+ * reference text" comment on struct mustach_template.sbuf), so the buffer
+ * must outlive every render done through the returned template. Hand it
+ * our own malloc'd copy with a freecb; mustach_destroy_template() releases
+ * it via that freecb, so we never touch/free it ourselves afterward. */
+int mustach_prepare_jsonb(const char *template, size_t length, int flags, mustach_template_t **templ) {
+    mustach_sbuf_t sbuf;
+    char *copy = malloc(length);
+    int buildflags;
+    if (!copy)
+        return MUSTACH_ERROR_SYSTEM;
+    memcpy(copy, template, length);
+    sbuf.value = copy;
+    sbuf.length = length;
+    sbuf.freecb = free;
+    buildflags = 0;
+    if (flags & Mustach_With_Colon)
+        buildflags |= Mustach_Build_With_Colon;
+    if (flags & Mustach_With_EmptyTag)
+        buildflags |= Mustach_Build_With_EmptyTag;
+    return mustach_make_template(templ, buildflags, &sbuf, NULL);
+}
+
+int mustach_render_jsonb(mustach_template_t *templ, Jsonb *root, int flags, FILE *file) {
+    struct expl e;
+    e.root = root;
+    return mustach_wrap_apply(templ, &mustach_jsonb_wrap_itf, &e, flags, mustach_fwrite_cb, NULL, file);
+}
+
+void mustach_destroy_jsonb(mustach_template_t *templ) {
+    mustach_destroy_template(templ, NULL, NULL);
 }

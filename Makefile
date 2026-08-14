@@ -1,5 +1,5 @@
 $(OBJS): Makefile
-DATA = pg_mustach--1.0.sql pg_mustach--1.0--2.0.sql pg_mustach--2.0.sql pg_mustach--2.0--3.0.sql pg_mustach--3.0.sql
+DATA = pg_mustach--1.0.sql pg_mustach--1.0--2.0.sql pg_mustach--2.0.sql pg_mustach--2.0--3.0.sql pg_mustach--3.0.sql pg_mustach--3.0--4.0.sql pg_mustach--4.0.sql
 EXTENSION = pg_mustach
 MODULE_big = $(EXTENSION)
 OBJS = $(EXTENSION).o mustach-jsonb.o pg_whitelist/pg_whitelist.o

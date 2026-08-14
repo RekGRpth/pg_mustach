@@ -13,6 +13,7 @@
 
 #include <utils/builtins.h>
 #include <utils/guc.h>
+#include <utils/hsearch.h>
 #include <utils/jsonb.h>
 #if PG_VERSION_NUM >= 160000
 #include <varatt.h>
@@ -27,6 +28,9 @@
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
 int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int flags, FILE *file, char **err);
+int mustach_prepare_jsonb(const char *template, size_t length, int flags, mustach_template_t **templ);
+int mustach_render_jsonb(mustach_template_t *templ, Jsonb *root, int flags, FILE *file);
+void mustach_destroy_jsonb(mustach_template_t *templ);
 
 PG_MODULE_MAGIC;
 
@@ -85,11 +89,70 @@ EXTENSION(pg_mustach_with_objectiter) { PG_RETURN_INT32(Mustach_With_ObjectIter)
 EXTENSION(pg_mustach_with_partialdatafirst) { PG_RETURN_INT32(Mustach_With_PartialDataFirst); }
 EXTENSION(pg_mustach_with_singledot) { PG_RETURN_INT32(Mustach_With_SingleDot); }
 
+/* Backend-local cache of templates parsed by mustach_prepare(), keyed by the
+ * id returned to the caller. Handles are session-scoped, same trust model
+ * as e.g. dblink connection handles: not persisted, not shared across
+ * backends, live until mustach_forget() or backend exit. */
+typedef struct {
+    int64 id;
+    mustach_template_t *templ;
+} pg_mustach_prepared;
+
+static HTAB *pg_mustach_prepared_hash = NULL;
+static int64 pg_mustach_next_id = 1;
+
+static HTAB *pg_mustach_prepared_hash_get(void) {
+    if (!pg_mustach_prepared_hash) {
+        HASHCTL ctl;
+        memset(&ctl, 0, sizeof(ctl));
+        ctl.keysize = sizeof(int64);
+        ctl.entrysize = sizeof(pg_mustach_prepared);
+        pg_mustach_prepared_hash = hash_create("pg_mustach prepared templates", 16, &ctl, HASH_ELEM | HASH_BLOBS);
+    }
+    return pg_mustach_prepared_hash;
+}
+
+static void pg_mustach_check(int rc, const char *err) {
+    switch (rc) {
+        case MUSTACH_OK: break;
+        case MUSTACH_ERROR_SYSTEM: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
+        case MUSTACH_ERROR_UNEXPECTED_END: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
+        case MUSTACH_ERROR_EMPTY_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_EMPTY_TAG"))); break;
+#if MUSTACH_VERSION >= 200
+        case MUSTACH_ERROR_TOO_BIG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_BIG"))); break;
+#else
+        case MUSTACH_ERROR_TAG_TOO_LONG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TAG_TOO_LONG"))); break;
+#endif
+#if MUSTACH_VERSION >= 200
+        case MUSTACH_ERROR_BAD_DELIMITER: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_DELIMITER"))); break;
+#else
+        case MUSTACH_ERROR_BAD_SEPARATORS: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_SEPARATORS"))); break;
+#endif
+        case MUSTACH_ERROR_TOO_DEEP: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_DEEP"))); break;
+        case MUSTACH_ERROR_CLOSING: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_CLOSING"))); break;
+        case MUSTACH_ERROR_BAD_UNESCAPE_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_UNESCAPE_TAG"))); break;
+        case MUSTACH_ERROR_INVALID_ITF: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_INVALID_ITF"))); break;
+#if MUSTACH_VERSION >= 200
+        case MUSTACH_ERROR_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_NOT_FOUND"))); break;
+#else
+        case MUSTACH_ERROR_ITEM_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_ITEM_NOT_FOUND"))); break;
+        case MUSTACH_ERROR_PARTIAL_NOT_FOUND: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
+#endif
+        case MUSTACH_ERROR_UNDEFINED_TAG: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNDEFINED_TAG"))); break;
+        case MUSTACH_ERROR_TOO_MUCH_NESTING: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_MUCH_NESTING"))); break;
+#if MUSTACH_VERSION >= 200
+        case MUSTACH_ERROR_OUT_OF_MEMORY: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_OUT_OF_MEMORY"))); break;
+#endif
+        default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("%s", err ? err : "unknown mustach error"))); break;
+    }
+}
+
 EXTENSION(pg_mustach_jsonb) {
     char *data = NULL;
     char *err = NULL;
     char *name = NULL;
     FILE *file;
+    int rc;
     size_t len;
     Jsonb *json;
     text *output;
@@ -120,37 +183,11 @@ EXTENSION(pg_mustach_jsonb) {
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
-    switch (mustach_process_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), json, pg_mustach_flags, file, &err)) {
-        case MUSTACH_OK: break;
-        case MUSTACH_ERROR_SYSTEM: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_SYSTEM"))); break;
-        case MUSTACH_ERROR_UNEXPECTED_END: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNEXPECTED_END"))); break;
-        case MUSTACH_ERROR_EMPTY_TAG: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_EMPTY_TAG"))); break;
-#if MUSTACH_VERSION >= 200
-        case MUSTACH_ERROR_TOO_BIG: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_BIG"))); break;
-#else
-        case MUSTACH_ERROR_TAG_TOO_LONG: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TAG_TOO_LONG"))); break;
-#endif
-#if MUSTACH_VERSION >= 200
-        case MUSTACH_ERROR_BAD_DELIMITER: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_DELIMITER"))); break;
-#else
-        case MUSTACH_ERROR_BAD_SEPARATORS: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_SEPARATORS"))); break;
-#endif
-        case MUSTACH_ERROR_TOO_DEEP: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_DEEP"))); break;
-        case MUSTACH_ERROR_CLOSING: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_CLOSING"))); break;
-        case MUSTACH_ERROR_BAD_UNESCAPE_TAG: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_BAD_UNESCAPE_TAG"))); break;
-        case MUSTACH_ERROR_INVALID_ITF: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_INVALID_ITF"))); break;
-#if MUSTACH_VERSION >= 200
-        case MUSTACH_ERROR_NOT_FOUND: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_NOT_FOUND"))); break;
-#else
-        case MUSTACH_ERROR_ITEM_NOT_FOUND: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_ITEM_NOT_FOUND"))); break;
-        case MUSTACH_ERROR_PARTIAL_NOT_FOUND: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_PARTIAL_NOT_FOUND"))); break;
-#endif
-        case MUSTACH_ERROR_UNDEFINED_TAG: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_UNDEFINED_TAG"))); break;
-        case MUSTACH_ERROR_TOO_MUCH_NESTING: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_TOO_MUCH_NESTING"))); break;
-#if MUSTACH_VERSION >= 200
-        case MUSTACH_ERROR_OUT_OF_MEMORY: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("MUSTACH_ERROR_OUT_OF_MEMORY"))); break;
-#endif
-        default: if (data) free(data); if (name) unlink(name); ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("%s", err ? err : "unknown mustach error"))); break;
+    rc = mustach_process_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), json, pg_mustach_flags, file, &err);
+    if (rc != MUSTACH_OK) {
+        if (data) free(data);
+        if (name) unlink(name);
+        pg_mustach_check(rc, err);
     }
     PG_FREE_IF_COPY(json, 0);
     PG_FREE_IF_COPY(template, 1);
@@ -162,4 +199,65 @@ EXTENSION(pg_mustach_jsonb) {
         case 3: if (name) pfree(name); PG_RETURN_BOOL(true);
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
+}
+
+EXTENSION(pg_mustach_prepare) {
+    text *template;
+    mustach_template_t *templ;
+    pg_mustach_prepared *entry;
+    bool found;
+    int64 id;
+    int rc;
+    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_prepare requires argument template")));
+    template = PG_GETARG_TEXT_PP(0);
+    rc = mustach_prepare_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), pg_mustach_flags, &templ);
+    if (rc != MUSTACH_OK) pg_mustach_check(rc, NULL);
+    PG_FREE_IF_COPY(template, 0);
+    id = pg_mustach_next_id++;
+    entry = hash_search(pg_mustach_prepared_hash_get(), &id, HASH_ENTER, &found);
+    entry->templ = templ;
+    PG_RETURN_INT64(id);
+}
+
+EXTENSION(pg_mustach_render) {
+    int64 id;
+    Jsonb *json;
+    pg_mustach_prepared *entry;
+    bool found;
+    char *data = NULL;
+    size_t len;
+    FILE *file;
+    text *output;
+    int rc;
+    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument id")));
+    if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument json")));
+    id = PG_GETARG_INT64(0);
+    json = PG_GETARG_JSONB_P(1);
+    entry = hash_search(pg_mustach_prepared_hash_get(), &id, HASH_FIND, &found);
+    if (!found) ereport(ERROR, (errcode(ERRCODE_UNDEFINED_OBJECT), errmsg("unknown prepared mustach template " INT64_FORMAT, id)));
+    if (!(file = open_memstream(&data, &len))) ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("!open_memstream")));
+    rc = mustach_render_jsonb(entry->templ, json, pg_mustach_flags, file);
+    fclose(file);
+    if (rc != MUSTACH_OK) {
+        if (data) free(data);
+        pg_mustach_check(rc, NULL);
+    }
+    PG_FREE_IF_COPY(json, 1);
+    output = cstring_to_text_with_len(data, len);
+    free(data);
+    PG_RETURN_TEXT_P(output);
+}
+
+EXTENSION(pg_mustach_forget) {
+    int64 id;
+    pg_mustach_prepared *entry;
+    bool found;
+    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_forget requires argument id")));
+    id = PG_GETARG_INT64(0);
+    entry = hash_search(pg_mustach_prepared_hash_get(), &id, HASH_FIND, &found);
+    if (found) {
+        mustach_destroy_jsonb(entry->templ);
+        hash_search(pg_mustach_prepared_hash_get(), &id, HASH_REMOVE, NULL);
+    }
+    PG_RETURN_BOOL(found);
 }
