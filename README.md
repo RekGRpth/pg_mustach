@@ -46,7 +46,7 @@ to `conname` in [pg_curl](https://github.com/RekGRpth/pg_curl)):
 ```sql
 SELECT mustach_prepare('<ul>{{#people}}<li>{{firstName}} {{lastName}}</li>{{/people}}</ul>', 'people');
 
-SELECT mustach_render(data, 'people') FROM my_table;
+SELECT mustach_render(data, tplname := 'people') FROM my_table;
 
 SELECT mustach_forget('people');
 ```
@@ -64,11 +64,19 @@ SELECT mustach_render('{"a":"b"}');  -- b
   there.
 - `mustach_render(json jsonb, tplname name DEFAULT NULL) RETURNS text` — renders the template
   prepared under `tplname` against `json`.
-- `mustach_render(json jsonb, file text, tplname name) RETURNS bool` — same, but writes the
-  result to `file` on the server instead of returning it, same restrictions as the 3-argument
-  `mustach()` above (superuser only). `tplname` isn't optional here (pass `NULL` explicitly for
-  the default slot) — otherwise a 2-argument call would be ambiguous between this overload with
-  `tplname` defaulted and the plain `mustach_render(json, tplname)` above.
+- `mustach_render(json jsonb, file text, tplname name DEFAULT NULL) RETURNS bool` — same, but
+  writes the result to `file` on the server instead of returning it, same restrictions as the
+  3-argument `mustach()` above (superuser only).
+
+> [!WARNING]
+> Always pass `tplname` by name (`tplname := 'people'`), never as a bare second positional
+> argument. `mustach_render(json, 'people')` looks like a call to the two-argument form above,
+> but PostgreSQL's overload resolution prefers `text` over `name` for an unknown-type string
+> literal, so a bare positional second argument actually resolves to the three-argument
+> `file`-writing overload — `'people'` becomes the *file path*, not the template name, and it
+> silently writes a file on the server instead of erroring. Named-argument syntax sidesteps this
+> because it requires an actual parameter called `tplname`, which the `file`-writing overload
+> only has once `file` itself is otherwise supplied.
 - `mustach_forget(tplname name DEFAULT NULL) RETURNS bool` — releases a prepared template,
   returning whether `tplname` was still known. Prepared templates are backend-local (not visible
   from other sessions) and live until forgotten or the session ends, so long-lived sessions that

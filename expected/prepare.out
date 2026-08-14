@@ -15,6 +15,8 @@ ERROR:  unknown prepared mustach template "doesnotexist"
 10|file content written by render|b
 ERROR:  permission denied to write server file
 DETAIL:  Only superusers may write files with mustach_render.
-12|forget on the unnamed default slot returns true once|t
-13|forget on the already-empty unnamed default slot returns false|f
+12|a bare positional 2nd argument is the file overload, not tplname|t
+13|positional call wrote a file|yes
+14|forget on the unnamed default slot returns true once|t
+15|forget on the already-empty unnamed default slot returns false|f
 ERROR:  no prepared mustach template
