@@ -219,7 +219,7 @@ static void pg_mustach_check(int rc, const char *err) {
     }
 }
 
-EXTENSION(pg_mustach_jsonb) {
+EXTENSION(pg_mustach) {
     char *data = NULL;
     char *err = NULL;
     char *name = NULL;
