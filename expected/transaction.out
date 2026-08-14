@@ -1,0 +1,16 @@
+\unset ECHO
+
+ERROR:  unknown prepared mustach template "txn_autocommit"
+
+2|within one explicit transaction the template is still there|b
+ERROR:  unknown prepared mustach template "txn_explicit"
+
+ERROR:  unknown prepared mustach template "txn_rollback"
+
+ERROR:  no prepared mustach template
+
+6|with pg_mustach.transaction off, the template survives across statements|b
+7|and across an explicit transaction boundary|c
+8|still there after that commit|d
+t
+ERROR:  unknown prepared mustach template "txn_session"

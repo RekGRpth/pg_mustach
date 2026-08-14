@@ -15,6 +15,7 @@
 #include <utils/guc.h>
 #include <utils/hsearch.h>
 #include <utils/jsonb.h>
+#include <utils/memutils.h>
 #if PG_VERSION_NUM >= 160000
 #include <varatt.h>
 #endif
@@ -67,10 +68,12 @@ static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
 }
 
 static int pg_mustach_flags = Mustach_With_AllExtensions;
+static bool pg_mustach_transaction = true;
 
 void _PG_init(void);
 void _PG_init(void) {
     DefineCustomIntVariable("pg_mustach.flags", "Sets the flags (bitmask of the values returned by mustach_with_*() functions) controlling mustach rendering.", NULL, &pg_mustach_flags, Mustach_With_AllExtensions, 0, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
+    DefineCustomBoolVariable("pg_mustach.transaction", "pg_mustach transaction", "Scope mustach_prepare()'d templates to the current transaction instead of the session?", &pg_mustach_transaction, true, PGC_USERSET, 0, NULL, NULL, NULL);
     pg_whitelist_init("pg_mustach.whitelist");
     mustach_wrap_get_partial = pg_mustach_get_partial;
 }
@@ -118,6 +121,52 @@ static HTAB *pg_mustach_prepared_hash_get(void) {
     }
     return pg_mustach_prepared_hash;
 }
+
+#if PG_VERSION_NUM >= 90500
+/* Mirrors pg_curl's pg_curl_global/pg_curl_global_init/pg_curl_global_cleanup:
+ * a single reset callback, (re)armed on the context matching
+ * pg_mustach.transaction, sweeps every prepared template away when that
+ * context resets -- rather than one callback per template (which would need
+ * MemoryContextUnregisterResetCallback to cancel cleanly on an explicit
+ * mustach_forget(), and that call only exists since PG 19). Sweeping is
+ * safe to do with a plain hash_search(HASH_REMOVE) while hash_seq_search()
+ * is in progress -- deleting the currently-returned element mid-scan is
+ * explicitly supported by dynahash. */
+typedef struct {
+    MemoryContext context;
+    MemoryContextCallback cleanup;
+} pg_mustach_global_t;
+
+static pg_mustach_global_t pg_mustach_global = {0};
+
+static void pg_mustach_global_cleanup(void *arg) {
+    (void) arg;
+    if (pg_mustach_default_templ) {
+        mustach_destroy_jsonb(pg_mustach_default_templ);
+        pg_mustach_default_templ = NULL;
+    }
+    if (pg_mustach_prepared_hash) {
+        HASH_SEQ_STATUS status;
+        pg_mustach_prepared *entry;
+        hash_seq_init(&status, pg_mustach_prepared_hash);
+        while ((entry = hash_seq_search(&status))) {
+            mustach_destroy_jsonb(entry->templ);
+            hash_search(pg_mustach_prepared_hash, NameStr(entry->tplname), HASH_REMOVE, NULL);
+        }
+    }
+    pg_mustach_global.context = NULL;
+}
+
+static void pg_mustach_global_init(void) {
+    if (pg_mustach_global.context) return;
+    pg_mustach_global.context = pg_mustach_transaction ? TopTransactionContext : TopMemoryContext;
+    pg_mustach_global.cleanup.func = pg_mustach_global_cleanup;
+    MemoryContextRegisterResetCallback(pg_mustach_global.context, &pg_mustach_global.cleanup);
+}
+#else
+static void pg_mustach_global_init(void) {
+}
+#endif
 
 /* Resolve tplname (NULL for the unnamed default slot) to its prepared
  * template, erroring if none is prepared there yet. */
@@ -230,6 +279,7 @@ EXTENSION(pg_mustach_prepare) {
     NameData *tplname;
     int rc;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_prepare requires argument template")));
+    pg_mustach_global_init();
     template = PG_GETARG_TEXT_PP(0);
     tplname = PG_TPLNAME(1);
     rc = mustach_prepare_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), pg_mustach_flags, &templ);
@@ -258,6 +308,7 @@ EXTENSION(pg_mustach_render) {
     text *output;
     int rc;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_render requires argument json")));
+    pg_mustach_global_init();
     json = PG_GETARG_JSONB_P(0);
     switch (PG_NARGS()) {
         case 2: {
@@ -300,6 +351,7 @@ EXTENSION(pg_mustach_render) {
 EXTENSION(pg_mustach_forget) {
     NameData *tplname = PG_TPLNAME(0);
     bool found;
+    pg_mustach_global_init();
     if (!tplname) {
         found = pg_mustach_default_templ != NULL;
         if (found) {

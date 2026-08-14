@@ -78,9 +78,36 @@ SELECT mustach_render('{"a":"b"}');  -- b
 > because it requires an actual parameter called `tplname`, which the `file`-writing overload
 > only has once `file` itself is otherwise supplied.
 - `mustach_forget(tplname name DEFAULT NULL) RETURNS bool` — releases a prepared template,
-  returning whether `tplname` was still known. Prepared templates are backend-local (not visible
-  from other sessions) and live until forgotten or the session ends, so long-lived sessions that
-  keep preparing under new names without forgetting will accumulate memory.
+  returning whether `tplname` was still known.
+
+Prepared templates are backend-local (not visible from other sessions) and never outlive the
+backend, but by default they don't even outlive the transaction they were prepared in — see
+below.
+
+### `pg_mustach.transaction`
+
+Mirroring [pg_curl](https://github.com/RekGRpth/pg_curl)'s `pg_curl.transaction`: by default,
+every `mustach_prepare()`'d template (named or the unnamed default slot) is forgotten
+automatically when its transaction ends, whether by `COMMIT` or `ROLLBACK` — including the
+implicit per-statement transaction of an autocommitted call, so preparing and rendering in two
+separate top-level statements outside an explicit `BEGIN` won't see each other's state:
+
+```sql
+SELECT mustach_prepare('{{a}}', 'people');           -- commits immediately, autocommit
+SELECT mustach_render('{"a":"b"}', tplname := 'people');  -- ERROR: unknown prepared mustach template "people"
+```
+
+Wrap both calls in one transaction, or turn the behavior off to get session-lifetime templates
+(the only behavior before this GUC existed):
+
+```sql
+SET pg_mustach.transaction = false;
+SELECT mustach_prepare('{{a}}', 'people');
+SELECT mustach_render('{"a":"b"}', tplname := 'people');  -- b, survives across statements/transactions
+```
+
+`mustach_forget()` always removes a template immediately regardless of this setting — it doesn't
+wait for a transaction boundary.
 
 ## Extensions and flags
 
