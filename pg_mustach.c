@@ -73,7 +73,9 @@ static bool pg_mustach_transaction = true;
 void _PG_init(void);
 void _PG_init(void) {
     DefineCustomIntVariable("pg_mustach.flags", "Sets the flags (bitmask of the values returned by mustach_with_*() functions) controlling mustach rendering.", NULL, &pg_mustach_flags, Mustach_With_AllExtensions, 0, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
+#if PG_VERSION_NUM >= 90500
     DefineCustomBoolVariable("pg_mustach.transaction", "pg_mustach transaction", "Scope mustach_template()'d templates to the current transaction instead of the session?", &pg_mustach_transaction, true, PGC_USERSET, 0, NULL, NULL, NULL);
+#endif
     pg_whitelist_init("pg_mustach.whitelist");
     mustach_wrap_get_partial = pg_mustach_get_partial;
 }
@@ -165,9 +167,9 @@ static void pg_mustach_global_init(void) {
 }
 #else
 /* No MemoryContextRegisterResetCallback before PG 9.5: pg_mustach.transaction
- * exists as a GUC but has no effect here, same as if it were always false --
- * prepared templates are always session-lifetime, only mustach_free() (or
- * the session ending) removes them. See expected/transaction_1.out. */
+ * isn't even registered as a GUC there (see _PG_init), and prepared
+ * templates are always session-lifetime -- only mustach_free() (or the
+ * session ending) removes them. See expected/transaction_1.out. */
 static void pg_mustach_global_init(void) {
 }
 #endif

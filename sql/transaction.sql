@@ -51,7 +51,11 @@ SELECT 5, 'the unnamed default slot is transaction-scoped too', mustach_json('{"
 --
 -- pg_mustach.transaction = false restores session-lifetime templates,
 -- surviving across autocommitted statements and explicit transactions
--- alike, same as before this GUC was added.
+-- alike, same as before this GUC was added. Before PG 9.5 the GUC isn't
+-- registered at all (see _PG_init) so this SET is just a harmless
+-- placeholder assignment (PostgreSQL accepts SET on any dotted name since
+-- 9.2's removal of custom_variable_classes) -- session-lifetime is already
+-- the only behavior there regardless.
 --
 SET pg_mustach.transaction = false;
 SELECT mustach_template('{{a}}', 'txn_session');
