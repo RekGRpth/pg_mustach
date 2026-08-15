@@ -309,7 +309,11 @@ EXTENSION(pg_mustach_json) {
     int rc;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_json requires argument json")));
     pg_mustach_global_init();
+#if PG_VERSION_NUM >= 110000
     json = PG_GETARG_JSONB_P(0);
+#else
+    json = PG_GETARG_JSONB(0);
+#endif
     switch (PG_NARGS()) {
         case 2: {
             templ = pg_mustach_prepared_get(PG_TPLNAME(1));
