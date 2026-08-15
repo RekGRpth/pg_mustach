@@ -1,0 +1,16 @@
+\unset ECHO
+
+1|a template prepared in one autocommitted statement is gone by the next|b
+
+2|within one explicit transaction the template is still there|b
+3|gone once that transaction commits|b
+
+4|also gone if that transaction rolls back instead|b
+
+5|the unnamed default slot is transaction-scoped too|b
+
+6|with pg_mustach.transaction off, the template survives across statements|b
+7|and across an explicit transaction boundary|c
+8|still there after that commit|d
+t
+ERROR:  unknown prepared mustach template "txn_session"

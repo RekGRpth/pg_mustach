@@ -3,6 +3,11 @@
 \pset format unaligned
 \pset tuples_only true
 \pset pager off
+--
+-- Before PG 9.5 (no MemoryContextRegisterResetCallback) pg_mustach.transaction
+-- has no effect and every prepared template is session-lifetime regardless --
+-- see expected/transaction_1.out for the matching alternate output.
+--
 CREATE EXTENSION pg_mustach;
 
 --

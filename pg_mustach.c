@@ -164,6 +164,10 @@ static void pg_mustach_global_init(void) {
     MemoryContextRegisterResetCallback(pg_mustach_global.context, &pg_mustach_global.cleanup);
 }
 #else
+/* No MemoryContextRegisterResetCallback before PG 9.5: pg_mustach.transaction
+ * exists as a GUC but has no effect here, same as if it were always false --
+ * prepared templates are always session-lifetime, only mustach_free() (or
+ * the session ending) removes them. See expected/transaction_1.out. */
 static void pg_mustach_global_init(void) {
 }
 #endif
