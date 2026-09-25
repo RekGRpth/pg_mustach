@@ -80,10 +80,14 @@ static bool pg_mustach_whitelisted(const char *name, const char *resolved, bool 
  * there but not admitted only raises ERROR when the json data can't provide
  * the partial either -- relative names resolve against the data directory,
  * so e.g. {{>base}} would otherwise hit PGDATA/base instead of "base" in
- * the data. Nothing found anywhere renders empty, as mustach-wrap.c does. */
+ * the data. Nothing found anywhere renders empty, as mustach-wrap.c does.
+ * http(s):// names are never read as files: pg_whitelist_check_local()
+ * waves them through unchecked as URLs, yet here they'd be local paths
+ * (with an "http:" directory in PGDATA, {{>http://../../etc/passwd}}). */
 static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
     static char extension[] = ".mustache";
     bool data_first = (pg_mustach_flags & Mustach_With_PartialDataFirst) != 0;
+    bool local = strncmp(name, "http://", 7) && strncmp(name, "https://", 8);
     bool privileged = pg_mustach_privileged();
     bool found;
     char path[PATH_MAX];
@@ -93,8 +97,8 @@ static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
     if (length + sizeof extension > sizeof path) return MUSTACH_ERROR_TOO_BIG;
     memcpy(path, name, length);
     path[length] = 0;
-    found = realpath(path, resolved) != NULL;
-    if (!found) {
+    found = local && realpath(path, resolved) != NULL;
+    if (local && !found) {
         memcpy(&path[length], extension, sizeof extension);
         found = realpath(path, resolved) != NULL;
     }
@@ -109,6 +113,7 @@ static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
     sbuf->value = "";
     return MUSTACH_OK;
 }
+
 static bool pg_mustach_transaction = true;
 
 void _PG_init(void);

@@ -28,6 +28,27 @@ SELECT mustach('{}', E'"{{>nonexistent_partial_name}}"');
 --
 SET ROLE mustach_test_none;
 SELECT mustach('{}', E'{{>/etc/hostname}}');
+RESET ROLE;
+
+--
+-- pg_whitelist exempts http(s):// names from its local-file check (they're
+-- URLs, meant for pg_whitelist_check_url()), but a partial name is only ever
+-- a local path here, and a relative one resolving against the data
+-- directory: with an "http:" directory there, "http://../../etc/hostname"
+-- would read /etc/hostname unchecked. Such names must never be read as
+-- files -- they resolve from the json data like any other name, or render
+-- empty.
+--
+SELECT current_setting('data_directory') AS pg_mustach_test_pgdata \gset
+\setenv PG_MUSTACH_TEST_PGDATA :pg_mustach_test_pgdata
+\! mkdir "$PG_MUSTACH_TEST_PGDATA/http:" "$PG_MUSTACH_TEST_PGDATA/https:"
+SET ROLE mustach_test_none;
+SELECT mustach('{}', E'[{{>http://../../../../../../../../../../../../etc/hostname}}]');
+SELECT mustach('{}', E'[{{>https://../../../../../../../../../../../../etc/hostname}}]');
+SELECT mustach('{"http://x": "from data"}', E'[{{>http://x}}]');
+RESET ROLE;
+\! rmdir "$PG_MUSTACH_TEST_PGDATA/http:" "$PG_MUSTACH_TEST_PGDATA/https:"
+SET ROLE mustach_test_none;
 
 --
 -- A denied file must not shadow a partial the json data provides. Relative
