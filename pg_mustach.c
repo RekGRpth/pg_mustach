@@ -127,7 +127,9 @@ static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
     return MUSTACH_OK;
 }
 
+#if PG_VERSION_NUM >= 90500
 static bool pg_mustach_transaction = true;
+#endif
 
 void _PG_init(void);
 void _PG_init(void) {
