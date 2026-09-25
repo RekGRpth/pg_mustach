@@ -435,7 +435,7 @@ int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int 
  * our own malloc'd copy with a freecb; mustach_destroy_template() releases
  * it via that freecb, so we never touch/free it ourselves afterward. */
 int mustach_prepare_jsonb(const char *template, size_t length, int flags, mustach_template_t **templ) {
-    mustach_sbuf_t sbuf;
+    mustach_sbuf_t sbuf = MUSTACH_SBUF_INIT;
     char *copy = malloc(length);
     int buildflags;
     if (!copy)
