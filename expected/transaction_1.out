@@ -14,3 +14,17 @@
 8|still there after that commit|d
 t
 ERROR:  unknown prepared mustach template "txn_session"
+
+
+
+10|turned on after being off, templates prepared from then on are transaction-scoped|b
+11|while the one prepared with it off stays session-scoped|b
+12|and so does the unnamed default slot prepared with it off|b
+
+
+13|turned off mid-transaction, the template prepared before that is still gone at commit|b
+14|while the one prepared after it survives|b
+
+
+15|re-preparing a tplname takes the scope in effect at that point|b
+16|session-scoped templates are still there to forget|t

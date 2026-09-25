@@ -144,16 +144,19 @@ EXTENSION(pg_mustach_with_singledot) { PG_RETURN_INT32(Mustach_With_SingleDot); 
  * tplname the same way pg_curl keys its named connections by conname: a
  * NULL tplname addresses a single unnamed default slot (mirroring
  * pg_curl's static "pg_curl" connection), any other tplname addresses an
- * entry in this hash. Session-scoped, same trust model as pg_curl's
- * connections: not persisted, not shared across backends, live until
- * mustach_free() or backend exit. */
+ * entry in this hash. Same trust model as pg_curl's connections: not
+ * persisted, not shared across backends, live until mustach_free(), the
+ * end of the transaction that prepared them if pg_mustach.transaction was
+ * on at the time (see pg_mustach_scope() below), or backend exit. */
 typedef struct {
     NameData tplname; // !!! always first !!! //
     mustach_template_t *templ;
+    bool transaction; /* forgotten when the transaction that prepared it ends */
 } pg_mustach_prepared;
 
 static HTAB *pg_mustach_prepared_hash = NULL;
 static mustach_template_t *pg_mustach_default_templ = NULL;
+static bool pg_mustach_default_transaction = false;
 
 static HTAB *pg_mustach_prepared_hash_get(void) {
     if (!pg_mustach_prepared_hash) {
@@ -171,25 +174,26 @@ static HTAB *pg_mustach_prepared_hash_get(void) {
 }
 
 #if PG_VERSION_NUM >= 90500
-/* Mirrors pg_curl's pg_curl_global/pg_curl_global_init/pg_curl_global_cleanup:
- * a single reset callback, (re)armed on the context matching
- * pg_mustach.transaction, sweeps every prepared template away when that
- * context resets -- rather than one callback per template (which would need
- * MemoryContextUnregisterResetCallback to cancel cleanly on an explicit
- * mustach_free(), and that call only exists since PG 19). Sweeping is
- * safe to do with a plain hash_search(HASH_REMOVE) while hash_seq_search()
- * is in progress -- deleting the currently-returned element mid-scan is
- * explicitly supported by dynahash. */
-typedef struct {
-    MemoryContext context;
-    MemoryContextCallback cleanup;
-} pg_mustach_global_t;
+/* Mirrors pg_curl's pg_curl.transaction, except that the scope is decided
+ * per template, by pg_mustach.transaction as it is when mustach_template()
+ * prepares it -- so changing the setting mid-session applies to templates
+ * prepared from then on, without touching those already prepared. A
+ * single reset callback, armed on TopTransactionContext by the first
+ * transaction-scoped template prepared in a transaction, sweeps just the
+ * transaction-scoped ones away when that transaction ends; session-scoped
+ * ones need no callback at all. One callback rather than one per template,
+ * since cancelling a template's callback on an explicit mustach_free()
+ * would need MemoryContextUnregisterResetCallback, which only exists since
+ * PG 19. Sweeping is safe to do with a plain hash_search(HASH_REMOVE) while
+ * hash_seq_search() is in progress -- deleting the currently-returned
+ * element mid-scan is explicitly supported by dynahash. */
+static MemoryContextCallback pg_mustach_cleanup;
+static bool pg_mustach_cleanup_armed = false;
 
-static pg_mustach_global_t pg_mustach_global = {0};
-
-static void pg_mustach_global_cleanup(void *arg) {
+static void pg_mustach_cleanup_func(void *arg) {
     (void) arg;
-    if (pg_mustach_default_templ) {
+    pg_mustach_cleanup_armed = false;
+    if (pg_mustach_default_templ && pg_mustach_default_transaction) {
         mustach_destroy_jsonb(pg_mustach_default_templ);
         pg_mustach_default_templ = NULL;
     }
@@ -198,25 +202,32 @@ static void pg_mustach_global_cleanup(void *arg) {
         pg_mustach_prepared *entry;
         hash_seq_init(&status, pg_mustach_prepared_hash);
         while ((entry = hash_seq_search(&status))) {
+            if (!entry->transaction) continue;
             mustach_destroy_jsonb(entry->templ);
             hash_search(pg_mustach_prepared_hash, NameStr(entry->tplname), HASH_REMOVE, NULL);
         }
     }
-    pg_mustach_global.context = NULL;
 }
 
-static void pg_mustach_global_init(void) {
-    if (pg_mustach_global.context) return;
-    pg_mustach_global.context = pg_mustach_transaction ? TopTransactionContext : TopMemoryContext;
-    pg_mustach_global.cleanup.func = pg_mustach_global_cleanup;
-    MemoryContextRegisterResetCallback(pg_mustach_global.context, &pg_mustach_global.cleanup);
+/* Scope for a template being prepared now: whether it's to be forgotten
+ * when the current transaction ends, arming the sweep if so. */
+static bool pg_mustach_scope(void) {
+    if (!pg_mustach_transaction) return false;
+    if (!pg_mustach_cleanup_armed) {
+        pg_mustach_cleanup.func = pg_mustach_cleanup_func;
+        pg_mustach_cleanup.arg = NULL;
+        MemoryContextRegisterResetCallback(TopTransactionContext, &pg_mustach_cleanup);
+        pg_mustach_cleanup_armed = true;
+    }
+    return true;
 }
 #else
 /* No MemoryContextRegisterResetCallback before PG 9.5: pg_mustach.transaction
  * isn't even registered as a GUC there (see _PG_init), and prepared
  * templates are always session-lifetime -- only mustach_free() (or the
  * session ending) removes them. See expected/transaction_1.out. */
-static void pg_mustach_global_init(void) {
+static bool pg_mustach_scope(void) {
+    return false;
 }
 #endif
 
@@ -359,23 +370,26 @@ EXTENSION(pg_mustach_template) {
     text *template;
     mustach_template_t *templ;
     NameData *tplname;
+    bool transaction;
     int rc;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_template requires argument template")));
-    pg_mustach_global_init();
     template = PG_GETARG_TEXT_PP(0);
     tplname = PG_TPLNAME(1);
     rc = mustach_prepare_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), pg_mustach_flags, &templ);
     if (rc != MUSTACH_OK) pg_mustach_check(rc, NULL);
     PG_FREE_IF_COPY(template, 0);
+    transaction = pg_mustach_scope();
     if (!tplname) {
         if (pg_mustach_default_templ) mustach_destroy_jsonb(pg_mustach_default_templ);
         pg_mustach_default_templ = templ;
+        pg_mustach_default_transaction = transaction;
     } else {
         pg_mustach_prepared *entry;
         bool found;
         entry = hash_search(pg_mustach_prepared_hash_get(), NameStr(*tplname), HASH_ENTER, &found);
         if (found) mustach_destroy_jsonb(entry->templ);
         entry->templ = templ;
+        entry->transaction = transaction;
     }
     PG_RETURN_VOID();
 }
@@ -390,7 +404,6 @@ EXTENSION(pg_mustach_json) {
     text *output;
     int rc;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_json requires argument json")));
-    pg_mustach_global_init();
 #if PG_VERSION_NUM >= 110000
     json = PG_GETARG_JSONB_P(0);
 #else
@@ -437,7 +450,6 @@ EXTENSION(pg_mustach_json) {
 EXTENSION(pg_mustach_free) {
     NameData *tplname = PG_TPLNAME(0);
     bool found;
-    pg_mustach_global_init();
     if (!tplname) {
         found = pg_mustach_default_templ != NULL;
         if (found) {

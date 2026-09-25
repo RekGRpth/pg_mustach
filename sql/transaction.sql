@@ -70,4 +70,39 @@ SELECT 9, 'explicit forget still removes it immediately, no waiting for a transa
 \set ON_ERROR_STOP true
 RESET pg_mustach.transaction;
 
+--
+-- The scope is decided per template, by pg_mustach.transaction as it is
+-- when mustach_template() prepares it: changing the setting mid-session
+-- applies to templates prepared from then on, in either direction, and
+-- leaves those already prepared alone.
+--
+SET pg_mustach.transaction = false;
+SELECT mustach_template('{{a}}', 'mix_session');
+SELECT mustach_template('{{a}}');
+RESET pg_mustach.transaction;
+SELECT mustach_template('{{a}}', 'mix_transaction');
+\set ON_ERROR_STOP false
+SELECT 10, 'turned on after being off, templates prepared from then on are transaction-scoped', mustach_json('{"a":"b"}', tplname := 'mix_transaction');
+\set ON_ERROR_STOP true
+SELECT 11, 'while the one prepared with it off stays session-scoped', mustach_json('{"a":"b"}', tplname := 'mix_session');
+SELECT 12, 'and so does the unnamed default slot prepared with it off', mustach_json('{"a":"b"}');
+
+BEGIN;
+SELECT mustach_template('{{a}}', 'mix_before');
+SET pg_mustach.transaction = false;
+SELECT mustach_template('{{a}}', 'mix_after');
+COMMIT;
+\set ON_ERROR_STOP false
+SELECT 13, 'turned off mid-transaction, the template prepared before that is still gone at commit', mustach_json('{"a":"b"}', tplname := 'mix_before');
+\set ON_ERROR_STOP true
+SELECT 14, 'while the one prepared after it survives', mustach_json('{"a":"b"}', tplname := 'mix_after');
+
+SELECT mustach_template('{{a}}', 'mix_session');
+RESET pg_mustach.transaction;
+SELECT mustach_template('{{a}}', 'mix_session');
+\set ON_ERROR_STOP false
+SELECT 15, 're-preparing a tplname takes the scope in effect at that point', mustach_json('{"a":"b"}', tplname := 'mix_session');
+\set ON_ERROR_STOP true
+SELECT 16, 'session-scoped templates are still there to forget', mustach_free('mix_after') AND mustach_free();
+
 DROP EXTENSION pg_mustach;

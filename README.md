@@ -98,6 +98,11 @@ SELECT mustach_template('{{a}}', 'people');
 SELECT mustach_json('{"a":"b"}', tplname := 'people');  -- b, survives across statements/transactions
 ```
 
+The setting is read when `mustach_template()` prepares a template, and fixes that template's
+scope from then on: changing it later applies to templates prepared afterwards (including one
+re-prepared under the same `tplname`), never to those already prepared, so session-lifetime and
+transaction-scoped templates can coexist.
+
 `mustach_free()` always removes a template immediately regardless of this setting — it doesn't
 wait for a transaction boundary.
 
