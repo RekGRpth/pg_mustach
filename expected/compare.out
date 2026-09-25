@@ -12,3 +12,12 @@
 11|null not equal to an arbitrary literal|
 12|container compared with greater-than always reports greater (default branch)|yes
 13|container compared with less-than never reports lesser|
+14|numeric equal is exact beyond double precision|
+15|numeric equal on exact match beyond double precision|yes
+16|numeric equal is exact for decimals double would round together|
+17|numeric greater-than is exact for decimals double would round together|yes
+18|numeric equal across notations|yes
+19|numeric less-than with negative decimals|yes
+20|numeric compared with a non-number keeps comparing against atof() of it|yes
+21|numeric compared with hex keeps comparing against atof() of it on every version|yes
+22|zero equal zero does not render (compare matches but zero is never truthy)|

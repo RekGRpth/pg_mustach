@@ -9,6 +9,7 @@
 #include <mustach/mustach-wrap.h>
 #include <mustach/mustach-helpers.h>
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -24,6 +25,8 @@ int mustach_partial_from_data_jsonb(const char *name, mustach_sbuf_t *sbuf);
  * these builtins ourselves rather than chase down whichever header
  * happens to expose them in a given version. */
 extern Datum numeric_out(PG_FUNCTION_ARGS);
+extern Datum numeric_in(PG_FUNCTION_ARGS);
+extern Datum numeric_cmp(PG_FUNCTION_ARGS);
 
 /* JsonContainerSize/IsObject/IsArray/IsScalar were only added in PG10; the
  * underlying header field and flag masks are stable since jsonb's PG9.4
@@ -120,6 +123,31 @@ static bool numeric_is_zero(Numeric n) {
     return true;
 }
 
+/* Whether numeric_in() is certain to accept s, on every supported PG
+ * version, without raising: plain decimal notation only (no NaN/Infinity,
+ * nor PG16's non-decimal integers and underscores), and at most 1000
+ * digits with a 3-digit exponent, well inside numeric's range everywhere
+ * (older versions cap the exponent at +/-1000). */
+static bool numeric_is_decimal(const char *s) {
+    int digits = 0;
+    int exponent_digits = 0;
+    while (isspace((unsigned char) *s)) s++;
+    if (*s == '+' || *s == '-') s++;
+    for (; isdigit((unsigned char) *s); s++) digits++;
+    if (*s == '.')
+        for (s++; isdigit((unsigned char) *s); s++) digits++;
+    if (!digits || digits > 1000) return false;
+    if (*s == 'e' || *s == 'E') {
+        s++;
+        if (*s == '+' || *s == '-') s++;
+        for (; isdigit((unsigned char) *s); s++)
+            if (++exponent_digits > 3) return false;
+        if (!exponent_digits) return false;
+    }
+    while (isspace((unsigned char) *s)) s++;
+    return !*s;
+}
+
 static bool objiter_advance(struct frame *f) {
     JsonbValue kv, vv;
     if (JsonbIteratorNext(&f->iter, &kv, true) != WJB_KEY)
@@ -149,6 +177,15 @@ static int compare(void *closure, const char *value) {
     int c;
     switch (o->kind) {
     case SEL_NUMERIC:
+        /* Exactly, as numeric, whenever value is a number: going through
+         * double would call 12345678901234567890 equal to ...891, or 10
+         * not greater than 9.99999999999999999. Anything else keeps the
+         * double comparison against atof(value) it always got. */
+        if (numeric_is_decimal(value)) {
+            Datum n = DirectFunctionCall3(numeric_in, CStringGetDatum(value), ObjectIdGetDatum(InvalidOid), Int32GetDatum(-1));
+            c = DatumGetInt32(DirectFunctionCall2(numeric_cmp, NumericGetDatum(o->v.numeric), n));
+            return c < 0 ? -1 : c > 0 ? 1 : 0;
+        }
         d = numeric_to_double(o->v.numeric) - atof(value);
         return d < 0 ? -1 : d > 0 ? 1 : 0;
     case SEL_STRING:
