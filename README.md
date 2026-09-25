@@ -64,19 +64,11 @@ SELECT mustach_json('{"a":"b"}');  -- b
   there.
 - `mustach_json(json jsonb, tplname name DEFAULT NULL) RETURNS text` — renders the template
   prepared under `tplname` against `json`.
-- `mustach_json(json jsonb, file text, tplname name DEFAULT NULL) RETURNS bool` — same, but
-  writes the result to `file` on the server instead of returning it, same restrictions as the
-  3-argument `mustach()` above (superuser only).
-
-> [!WARNING]
-> Always pass `tplname` by name (`tplname := 'people'`), never as a bare second positional
-> argument. `mustach_json(json, 'people')` looks like a call to the two-argument form above,
-> but PostgreSQL's overload resolution prefers `text` over `name` for an unknown-type string
-> literal, so a bare positional second argument actually resolves to the three-argument
-> `file`-writing overload — `'people'` becomes the *file path*, not the template name, and it
-> silently writes a file on the server instead of erroring. Named-argument syntax sidesteps this
-> because it requires an actual parameter called `tplname`, which the `file`-writing overload
-> only has once `file` itself is otherwise supplied.
+- `mustach_json_file(json jsonb, file text, tplname name DEFAULT NULL) RETURNS bool` — same as
+  `mustach_json()`, but writes the result to `file` on the server instead of returning it, same
+  restrictions as the 3-argument `mustach()` above (superuser only). It's a separate function
+  rather than a `mustach_json()` overload so that `mustach_json(json, 'people')` can only ever
+  mean the template named `people`, never a file path.
 - `mustach_free(tplname name DEFAULT NULL) RETURNS bool` — releases a prepared template,
   returning whether `tplname` was still known.
 

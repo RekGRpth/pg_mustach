@@ -24,25 +24,27 @@ SELECT 7, 'render on a forgotten tplname errors', mustach_json('{}', tplname := 
 SELECT 8, 'render on a tplname that was never prepared errors', mustach_json('{}', tplname := 'doesnotexist');
 \set ON_ERROR_STOP true
 SELECT mustach_template('{{a}}', 'file_test');
-SELECT 9, 'render can write the result to a server file instead of returning it', mustach_json('{"a":"b"}', '/tmp/pg_mustach_test_prepare.txt', 'file_test');
+SELECT 9, 'render can write the result to a server file instead of returning it', mustach_json_file('{"a":"b"}', '/tmp/pg_mustach_test_prepare.txt', 'file_test');
 \! printf '10|file content written by render|%s\n' "$(cat /tmp/pg_mustach_test_prepare.txt)"
 CREATE ROLE mustach_json_test_nonpriv NOSUPERUSER;
 SET LOCAL ROLE mustach_json_test_nonpriv;
 \set ON_ERROR_STOP false
-SELECT 11, 'non-superuser cannot write file via render', mustach_json('{"a":"b"}', '/tmp/pg_mustach_test_prepare_denied.txt', 'file_test');
+SELECT 11, 'non-superuser cannot write file via render', mustach_json_file('{"a":"b"}', '/tmp/pg_mustach_test_prepare_denied.txt', 'file_test');
 \set ON_ERROR_STOP true
 RESET ROLE;
 --
--- tplname has DEFAULT NULL on both mustach_json overloads, and a bare
--- positional 2nd argument is an "unknown"-type string literal that
--- PostgreSQL's overload resolution prefers to bind to a TEXT parameter
--- over a NAME parameter -- so a positional call actually picks the
--- (json, file, tplname DEFAULT NULL) overload, not (json, tplname), and
--- silently writes a server file rather than rendering by name. This is
--- locked in here so it isn't "fixed" by accident: always call with
--- tplname := '...' instead (see the tests above).
+-- Writing to a file is mustach_json_file(), not a mustach_json() overload:
+-- with (json, file text, tplname DEFAULT NULL) as a second mustach_json(),
+-- overload resolution bound a bare positional 2nd argument (an unknown-type
+-- literal, which prefers TEXT over NAME) to file, so mustach_json(json,
+-- 'people') silently wrote a server file named "people" instead of
+-- rendering that template. Now it can only ever be tplname, and a path
+-- passed there is just an unknown template name -- nothing gets written.
 --
-SELECT 12, 'a bare positional 2nd argument is the file overload, not tplname', mustach_json('{"a":"b"}', '/tmp/pg_mustach_test_prepare_positional_footgun.txt');
+SELECT 12, 'a bare positional 2nd argument is tplname', mustach_json('{"a":"b"}', 'file_test');
+\set ON_ERROR_STOP false
+SELECT 13, 'a path as a bare positional 2nd argument is just an unknown tplname', mustach_json('{"a":"b"}', '/tmp/pg_mustach_test_prepare_positional_footgun.txt');
+\set ON_ERROR_STOP true
 \! test -e /tmp/pg_mustach_test_prepare_positional_footgun.txt && echo '13|positional call wrote a file|yes' || echo '13|positional call wrote a file|no'
 SELECT 14, 'forget on the unnamed default slot returns true once', mustach_free();
 SELECT 15, 'forget on the already-empty unnamed default slot returns false', mustach_free();

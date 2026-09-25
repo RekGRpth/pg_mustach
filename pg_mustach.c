@@ -404,10 +404,10 @@ EXTENSION(pg_mustach_json) {
         case 3: {
             int fd;
             int open_errno;
-            if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_json requires argument file")));
+            if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("mustach_json_file requires argument file")));
             templ = pg_mustach_prepared_get(PG_TPLNAME(2));
             if (!superuser())
-                ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers may write files with mustach_json.")));
+                ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), errmsg("permission denied to write server file"), errdetail("Only superusers may write files with mustach_json_file.")));
             name = TextDatumGetCString(PG_GETARG_DATUM(1));
             fd = open(name, O_WRONLY | O_CREAT | O_EXCL, 0666);
             open_errno = errno;

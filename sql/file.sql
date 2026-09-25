@@ -31,14 +31,14 @@ SELECT 8, 'ERROR raised mid-render does not create debris file', mustach('{}', '
 \! test -e /tmp/pg_mustach_test_abort.txt && echo '9|debris file left behind|yes' || echo '9|debris file left behind|no'
 SELECT 10, 'prepare template with denied partial', mustach_template('x{{>/etc/hostname}}') IS NOT NULL;
 \set ON_ERROR_STOP false
-SELECT 11, 'ERROR raised mid-render of prepared template does not create debris file', mustach_json('{}', '/tmp/pg_mustach_test_abort.txt');
+SELECT 11, 'ERROR raised mid-render of prepared template does not create debris file', mustach_json_file('{}', '/tmp/pg_mustach_test_abort.txt');
 \set ON_ERROR_STOP true
 \! test -e /tmp/pg_mustach_test_abort.txt && echo '12|debris file left behind|yes' || echo '12|debris file left behind|no'
 SELECT count(*) AS fd_before FROM pg_ls_dir('/proc/self/fd') \gset
 DO $$ BEGIN
     FOR i IN 1..5 LOOP
         BEGIN PERFORM mustach('{}', 'x{{>/etc/hostname}}', '/tmp/pg_mustach_test_fd' || i || 'a.txt'); EXCEPTION WHEN insufficient_privilege THEN NULL; END;
-        BEGIN PERFORM mustach_json('{}', '/tmp/pg_mustach_test_fd' || i || 'b.txt'); EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+        BEGIN PERFORM mustach_json_file('{}', '/tmp/pg_mustach_test_fd' || i || 'b.txt'); EXCEPTION WHEN insufficient_privilege THEN NULL; END;
     END LOOP;
 END $$;
 SELECT 13, 'repeated ERRORs mid-render leak no fds', count(*) = :fd_before FROM pg_ls_dir('/proc/self/fd');
