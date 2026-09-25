@@ -420,6 +420,10 @@ int mustach_partial_from_data_jsonb(const char *name, mustach_sbuf_t *sbuf) {
 int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int flags, FILE *file, char **err) {
     struct expl e;
     int rc;
+    /* A zero length means "unknown, NUL-terminated" to mustach, which
+     * the text datum's contents aren't, so an empty template would
+     * otherwise be read past its end. */
+    if (!length) template = "";
     e.root = root;
     current_expl = &e;
     current_flags = flags;

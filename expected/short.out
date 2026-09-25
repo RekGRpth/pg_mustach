@@ -1,3 +1,6 @@
 \unset ECHO
 1|content json|b
 2|content json|<ul><li>Yehuda Katz</li><li>Carl Lerche</li><li>Alan Johnson</li></ul>
+3|an empty template renders empty, not whatever follows it in memory|[]
+4|an empty template writes an empty file|t
+5|empty template file size|0
