@@ -151,6 +151,30 @@ SELECT mustach('{}', E'{{>/etc/ssl/../passwd}}');
 \c - :pg_mustach_test_orig_user
 ALTER ROLE mustach_test_full RESET pg_mustach.whitelist;
 
+--
+-- A whitelist denial must not leak: raised from inside mustach's partial
+-- callback it would longjmp past mustach's cleanup, leaking the whole
+-- malloc'd parsed template on every such call (~14kB each for this one).
+-- The backend's own RSS, before and after 2000 denied renders, would grow
+-- by ~28MB then; 5MB leaves plenty of room for noise. Linux-only (/proc),
+-- like file.sql's fd check.
+--
+SET pg_mustach.whitelist = 'file:///nonexistent/';
+CREATE FUNCTION pg_temp.deny_many(n int) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    FOR i IN 1..n LOOP
+        BEGIN
+            PERFORM mustach('{}', repeat('{{#a}}x{{/a}}', 500) || '{{>/etc/hostname}}');
+        EXCEPTION WHEN insufficient_privilege THEN NULL;
+        END;
+    END LOOP;
+END $$;
+SELECT pg_temp.deny_many(100);
+SELECT substring(pg_read_file('/proc/self/status') from 'VmRSS:\s+(\d+) kB')::int AS pg_mustach_test_rss \gset
+SELECT pg_temp.deny_many(2000);
+SELECT substring(pg_read_file('/proc/self/status') from 'VmRSS:\s+(\d+) kB')::int - :pg_mustach_test_rss < 5000 AS denied_renders_do_not_leak;
+RESET pg_mustach.whitelist;
+
 DROP ROLE mustach_test_none;
 DROP ROLE mustach_test_full;
 DROP EXTENSION pg_mustach;

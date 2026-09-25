@@ -44,13 +44,14 @@ static bool pg_mustach_privileged(void) {
 
 static int pg_mustach_flags = Mustach_With_AllExtensions;
 
-/* pg_whitelist_check_local(), but answering false where it would raise its
- * permission-denied ERROR. Catching that without a subtransaction is fine:
- * pg_whitelist_check_local() holds no resources or locks, only palloc's,
- * and anything but the denial itself is re-thrown untouched. */
-static bool pg_mustach_whitelisted(const char *name, const char *resolved, bool privileged) {
+/* pg_whitelist_check_local(), but returning the permission-denied ERROR it
+ * would raise instead of raising it, or NULL if access is allowed. Catching
+ * that without a subtransaction is fine: pg_whitelist_check_local() holds no
+ * resources or locks, only palloc's, and anything but the denial itself is
+ * re-thrown untouched. */
+static ErrorData *pg_mustach_whitelist_denial(const char *name, const char *resolved, bool privileged) {
     MemoryContext context = CurrentMemoryContext;
-    volatile bool allowed = true;
+    ErrorData *volatile denial = NULL;
     PG_TRY(); {
         pg_whitelist_check_local(name, resolved, privileged);
     } PG_CATCH(); {
@@ -59,11 +60,18 @@ static bool pg_mustach_whitelisted(const char *name, const char *resolved, bool 
         edata = CopyErrorData();
         if (edata->sqlerrcode != ERRCODE_INSUFFICIENT_PRIVILEGE) PG_RE_THROW();
         FlushErrorState();
-        FreeErrorData(edata);
-        allowed = false;
+        denial = edata;
     } PG_END_TRY();
-    return allowed;
+    return denial;
 }
+
+/* An ERROR raised from inside a mustach callback longjmps past mustach's
+ * own cleanup, leaking whatever it malloc'd for the render -- for mustach(),
+ * the whole parsed template, every time. So the partial hook doesn't raise
+ * its whitelist denial there: it parks it here and fails the render with an
+ * error code instead, letting mustach unwind and free normally, and
+ * pg_mustach_close() raises it once mustach has returned. */
+static ErrorData *pg_mustach_error = NULL;
 
 /* {{>name}} partials: mustach-wrap.c by itself resolves them from the json
  * data and from reading "name" (or "name.mustache") as a local file path --
@@ -103,9 +111,14 @@ static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
         found = realpath(path, resolved) != NULL;
     }
     if (found) {
-        if (!pg_mustach_whitelisted(name, resolved, privileged)) {
-            if (!data_first && mustach_partial_from_data_jsonb(name, sbuf)) return MUSTACH_OK;
-            pg_whitelist_check_local(name, resolved, privileged); /* raises the denial */
+        ErrorData *denial = pg_mustach_whitelist_denial(name, resolved, privileged);
+        if (denial) {
+            if (!data_first && mustach_partial_from_data_jsonb(name, sbuf)) {
+                FreeErrorData(denial);
+                return MUSTACH_OK;
+            }
+            pg_mustach_error = denial; /* raised by pg_mustach_close() */
+            return MUSTACH_ERROR_SYSTEM;
         }
         if (mustach_read_file(resolved, sbuf) == MUSTACH_OK) return MUSTACH_OK;
     }
@@ -289,6 +302,7 @@ static void pg_mustach_check(int rc, const char *err) {
  * would stay behind and block every retry with the same path. fclose() must
  * come first, since for open_memstream() it's what finalizes *data. */
 static void pg_mustach_abort(FILE *file, char **data, const char *name) {
+    pg_mustach_error = NULL;
     fclose(file);
     if (*data) free(*data);
     if (name) unlink(name);
@@ -299,12 +313,16 @@ static void pg_mustach_abort(FILE *file, char **data, const char *name) {
  * reaches the target file, and for open_memstream() where *data gets
  * finalized, so its failure (e.g. ENOSPC) must not be reported as success
  * over a truncated file or a NULL *data. On failure *data is freed and the
- * target file removed before raising the ERROR. */
+ * target file removed before raising the ERROR -- the one a callback parked
+ * in pg_mustach_error, if any, rather than the error code it failed with. */
 static void pg_mustach_close(FILE *file, int rc, const char *err, char **data, const char *name) {
     int close_errno = fclose(file) ? errno : 0;
-    if (rc == MUSTACH_OK && !close_errno) return;
+    ErrorData *error = pg_mustach_error;
+    pg_mustach_error = NULL;
+    if (rc == MUSTACH_OK && !close_errno && !error) return;
     if (*data) free(*data);
     if (name) unlink(name);
+    if (error) ReThrowError(error);
     pg_mustach_check(rc, err);
     errno = close_errno;
     if (name) ereport(ERROR, (errcode_for_file_access(), errmsg("could not write file \"%s\": %m", name)));
