@@ -1,11 +1,3 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 SELECT 1, 'content json', mustach('{"a":"b"}', '{{a}}');
 SELECT 2, 'content json', mustach('{"people":[{"firstName":"Yehuda","lastName":"Katz"},{"firstName":"Carl","lastName":"Lerche"},{"firstName":"Alan","lastName":"Johnson"}]}', '<ul>{{#people}}<li>{{firstName}} {{lastName}}</li>{{/people}}</ul>');
@@ -19,4 +11,4 @@ SELECT 8, 'same, as an array element', '[' || mustach('{"a":["","XYZ"]}', '{{#a}
 SELECT 9, 'same, as a partial from the data', '[' || mustach('{"a":"","b":"XYZ"}', '{{>a}}') || ']';
 SELECT 10, 'an empty key renders empty under object iteration', '[' || mustach('{"":"v","b":"XYZ"}', '{{#*}}<{{*}}={{.}}>{{/*}}') || ']';
 SELECT 11, 'an empty string as the last thing in the jsonb renders empty', '[' || mustach('{"a":""}', '{{a}}') || ']';
-ROLLBACK;
+DROP EXTENSION pg_mustach;

@@ -1,11 +1,3 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 SELECT 1, 'mustach', mustach('{
   "name": "Chris",
@@ -116,4 +108,4 @@ SELECT 3, 'mustach', mustach('{
 * <ul>{{#names}}<li>{{.}}</li>{{/names}}</ul>
 * skills: <ul>{{#skills}}<li>{{.}}</li>{{/skills}}</ul>
 {{#age}}* age: {{.}}{{/age}}');
-ROLLBACK;
+DROP EXTENSION pg_mustach;

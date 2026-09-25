@@ -1,23 +1,102 @@
-\unset ECHO
-1|emptytag flag value|2
-2|equal flag value|8
-3|errorundefined flag value|1024
-4|escfirstcmp flag value|256
-5|incpartial flag value|128
-6|jsonpointer flag value|32
-7|objectiter flag value|64
-8|partialdatafirst flag value|512
-9|singledot flag value|4
-0
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'emptytag flag value', mustach_with_emptytag();
+ ?column? |      ?column?       | mustach_with_emptytag 
+----------+---------------------+-----------------------
+        1 | emptytag flag value |                     2
+(1 row)
+
+SELECT 2, 'equal flag value', mustach_with_equal();
+ ?column? |     ?column?     | mustach_with_equal 
+----------+------------------+--------------------
+        2 | equal flag value |                  8
+(1 row)
+
+SELECT 3, 'errorundefined flag value', mustach_with_errorundefined();
+ ?column? |         ?column?          | mustach_with_errorundefined 
+----------+---------------------------+-----------------------------
+        3 | errorundefined flag value |                        1024
+(1 row)
+
+SELECT 4, 'escfirstcmp flag value', mustach_with_escfirstcmp();
+ ?column? |        ?column?        | mustach_with_escfirstcmp 
+----------+------------------------+--------------------------
+        4 | escfirstcmp flag value |                      256
+(1 row)
+
+SELECT 5, 'incpartial flag value', mustach_with_incpartial();
+ ?column? |       ?column?        | mustach_with_incpartial 
+----------+-----------------------+-------------------------
+        5 | incpartial flag value |                     128
+(1 row)
+
+SELECT 6, 'jsonpointer flag value', mustach_with_jsonpointer();
+ ?column? |        ?column?        | mustach_with_jsonpointer 
+----------+------------------------+--------------------------
+        6 | jsonpointer flag value |                       32
+(1 row)
+
+SELECT 7, 'objectiter flag value', mustach_with_objectiter();
+ ?column? |       ?column?        | mustach_with_objectiter 
+----------+-----------------------+-------------------------
+        7 | objectiter flag value |                      64
+(1 row)
+
+SELECT 8, 'partialdatafirst flag value', mustach_with_partialdatafirst();
+ ?column? |          ?column?           | mustach_with_partialdatafirst 
+----------+-----------------------------+-------------------------------
+        8 | partialdatafirst flag value |                           512
+(1 row)
+
+SELECT 9, 'singledot flag value', mustach_with_singledot();
+ ?column? |       ?column?       | mustach_with_singledot 
+----------+----------------------+------------------------
+        9 | singledot flag value |                      4
+(1 row)
+
+SELECT mustach_set_flags(mustach_with_noextensions());
+ mustach_set_flags 
+-------------------
+                 0
+(1 row)
+
+SELECT 10, 'empty tag errors without EmptyTag extension', mustach('{}', '{{}}');
 ERROR:  MUSTACH_ERROR_EMPTY_TAG
-1023
+SELECT mustach_set_flags(mustach_with_allextensions());
+ mustach_set_flags 
+-------------------
+              1023
+(1 row)
+
+SELECT 11, 'malformed delimiter directive', mustach('{}', '{{==}}');
 ERROR:  MUSTACH_ERROR_BAD_DELIMITER
+SELECT 12, 'unescape tag missing closing brace', mustach('{}', '{{{name}}');
 ERROR:  MUSTACH_ERROR_BAD_UNESCAPE_TAG
+SELECT 13, 'unmatched closing tag', mustach('{}', '{{/x}}');
 ERROR:  MUSTACH_ERROR_CLOSING
+SELECT 14, 'mismatched closing tag name', mustach('{"a":{},"b":{}}', '{{#a}}{{/b}}');
 ERROR:  MUSTACH_ERROR_CLOSING
-2047
+SELECT mustach_set_flags(mustach_with_allextensions() | mustach_with_errorundefined());
+ mustach_set_flags 
+-------------------
+              2047
+(1 row)
+
+SELECT 15, 'undefined tag errors with ErrorUndefined extension', mustach('{}', '{{missing}}');
 ERROR:  MUSTACH_ERROR_UNDEFINED_TAG
-1023
+SELECT mustach_set_flags(mustach_with_allextensions());
+ mustach_set_flags 
+-------------------
+              1023
+(1 row)
+
+SELECT 16, 'excessive section nesting exceeds parser stack', mustach('{}', repeat('{{#s}}', 100));
 ERROR:  MUSTACH_ERROR_TOO_DEEP
+SELECT 17, 'self-recursive partial exceeds nesting limit', mustach('{"loop": "{{>loop}}"}', '{{>loop}}');
 ERROR:  MUSTACH_ERROR_TOO_MUCH_NESTING
-18|missing partial renders empty rather than erroring|
+SELECT 18, 'missing partial renders empty rather than erroring', mustach('{}', '{{>doesnotexist}}');
+ ?column? |                      ?column?                      | mustach 
+----------+----------------------------------------------------+---------
+       18 | missing partial renders empty rather than erroring | 
+(1 row)
+
+DROP EXTENSION pg_mustach;

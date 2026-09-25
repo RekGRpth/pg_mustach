@@ -1,12 +1,65 @@
-\unset ECHO
-1|content json|b
-2|content json|<ul><li>Yehuda Katz</li><li>Carl Lerche</li><li>Alan Johnson</li></ul>
-3|an empty template renders empty, not whatever follows it in memory|[]
-4|an empty template writes an empty file|t
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'content json', mustach('{"a":"b"}', '{{a}}');
+ ?column? |   ?column?   | mustach 
+----------+--------------+---------
+        1 | content json | b
+(1 row)
+
+SELECT 2, 'content json', mustach('{"people":[{"firstName":"Yehuda","lastName":"Katz"},{"firstName":"Carl","lastName":"Lerche"},{"firstName":"Alan","lastName":"Johnson"}]}', '<ul>{{#people}}<li>{{firstName}} {{lastName}}</li>{{/people}}</ul>');
+ ?column? |   ?column?   |                                mustach                                 
+----------+--------------+------------------------------------------------------------------------
+        2 | content json | <ul><li>Yehuda Katz</li><li>Carl Lerche</li><li>Alan Johnson</li></ul>
+(1 row)
+
+SELECT 3, 'an empty template renders empty, not whatever follows it in memory', '[' || mustach('{"a":"b"}', '') || ']';
+ ?column? |                              ?column?                              | ?column? 
+----------+--------------------------------------------------------------------+----------
+        3 | an empty template renders empty, not whatever follows it in memory | []
+(1 row)
+
+\! rm -f /tmp/pg_mustach_test_empty.txt
+SELECT 4, 'an empty template writes an empty file', mustach('{"a":"b"}', '', '/tmp/pg_mustach_test_empty.txt');
+ ?column? |                ?column?                | mustach 
+----------+----------------------------------------+---------
+        4 | an empty template writes an empty file | t
+(1 row)
+
+\! printf '5|empty template file size|%s\n' "$(wc -c < /tmp/pg_mustach_test_empty.txt)"; rm -f /tmp/pg_mustach_test_empty.txt
 5|empty template file size|0
-6|an empty string value renders empty, not whatever follows it in the jsonb|[]
-7|same, unescaped|[]
-8|same, as an array element|[<><XYZ>]
-9|same, as a partial from the data|[]
-10|an empty key renders empty under object iteration|[<=v><b=XYZ>]
-11|an empty string as the last thing in the jsonb renders empty|[]
+SELECT 6, 'an empty string value renders empty, not whatever follows it in the jsonb', '[' || mustach('{"a":"","b":"XYZ"}', '{{a}}') || ']';
+ ?column? |                                 ?column?                                  | ?column? 
+----------+---------------------------------------------------------------------------+----------
+        6 | an empty string value renders empty, not whatever follows it in the jsonb | []
+(1 row)
+
+SELECT 7, 'same, unescaped', '[' || mustach('{"a":"","b":"XYZ"}', '{{{a}}}') || ']';
+ ?column? |    ?column?     | ?column? 
+----------+-----------------+----------
+        7 | same, unescaped | []
+(1 row)
+
+SELECT 8, 'same, as an array element', '[' || mustach('{"a":["","XYZ"]}', '{{#a}}<{{.}}>{{/a}}') || ']';
+ ?column? |         ?column?          | ?column?  
+----------+---------------------------+-----------
+        8 | same, as an array element | [<><XYZ>]
+(1 row)
+
+SELECT 9, 'same, as a partial from the data', '[' || mustach('{"a":"","b":"XYZ"}', '{{>a}}') || ']';
+ ?column? |             ?column?             | ?column? 
+----------+----------------------------------+----------
+        9 | same, as a partial from the data | []
+(1 row)
+
+SELECT 10, 'an empty key renders empty under object iteration', '[' || mustach('{"":"v","b":"XYZ"}', '{{#*}}<{{*}}={{.}}>{{/*}}') || ']';
+ ?column? |                     ?column?                      |   ?column?    
+----------+---------------------------------------------------+---------------
+       10 | an empty key renders empty under object iteration | [<=v><b=XYZ>]
+(1 row)
+
+SELECT 11, 'an empty string as the last thing in the jsonb renders empty', '[' || mustach('{"a":""}', '{{a}}') || ']';
+ ?column? |                           ?column?                           | ?column? 
+----------+--------------------------------------------------------------+----------
+       11 | an empty string as the last thing in the jsonb renders empty | []
+(1 row)
+
+DROP EXTENSION pg_mustach;

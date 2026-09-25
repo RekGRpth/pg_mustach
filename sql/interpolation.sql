@@ -1,11 +1,3 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 COPY (
 SELECT 1, 'No Interpolation', mustach('{}', E'Hello from {Mustache}!\n')
@@ -87,4 +79,4 @@ UNION
 SELECT 39, 'Ampersand With Padding', mustach('{"string": "---"}', E'|{{& string }}|')
 ORDER BY 1
 ) TO stdout;
-ROLLBACK;
+DROP EXTENSION pg_mustach;

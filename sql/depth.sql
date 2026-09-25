@@ -1,16 +1,6 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 SELECT 1, 'section nesting one level below the runtime depth limit renders', mustach('{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":true}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}', '{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}X{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}');
-\set ON_ERROR_STOP false
 SELECT 2, 'section nesting at the runtime depth limit errors', mustach('{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":true}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}', '{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}X{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}');
-\set ON_ERROR_STOP true
 --
 -- Templates are encoded in blocks of 1024 words; sections ending on, or
 -- skipped across, block boundaries used to jump to garbage addresses in
@@ -21,4 +11,4 @@ SELECT 2, 'section nesting at the runtime depth limit errors', mustach('{"a":{"a
 SELECT 3, 'thousands of skipped sections in a row render empty', '[' || mustach('{}', repeat('{{#a}}x{{/a}}', 5000)) || ']';
 SELECT 4, 'a skipped section whose body spans several blocks is jumped over', mustach('{"b":"B"}', '[{{#a}}' || repeat('x{{b}}', 3000) || '{{/a}}]{{b}}');
 SELECT 5, 'thousands of entered sections in a row render', length(mustach('{"b":1}', repeat('{{#b}}y{{/b}}', 5000)));
-ROLLBACK;
+DROP EXTENSION pg_mustach;

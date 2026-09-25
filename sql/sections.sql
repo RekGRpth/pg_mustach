@@ -1,11 +1,3 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 COPY (
 SELECT 1, 'Truthy', mustach('{"boolean": true}', E'\"{{#boolean}}This should be rendered.{{/boolean}}\"')
@@ -69,4 +61,4 @@ UNION
 SELECT 30, 'Padding', mustach('{"boolean": true}', E'|{{# boolean }}={{/ boolean }}|')
 ORDER BY 1
 ) TO stdout;
-ROLLBACK;
+DROP EXTENSION pg_mustach;

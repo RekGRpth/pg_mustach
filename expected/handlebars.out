@@ -1,19 +1,92 @@
-\unset ECHO
-1|array-each|MoeLarryCurlyShemp
-2|complex|<h1>Colors</h1>
-  <ul>
-        <li><strong>red</strong></li>
-        <li><a href="#Green">green</a></li>
-        <li><a href="#Blue">blue</a></li>
-  </ul>
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'array-each', mustach('{"names": [{"name": "Moe"}, {"name": "Larry"}, {"name": "Curly"}, {"name": "Shemp"}]}', '{{#names}}{{name}}{{/names}}');
+ ?column? |  ?column?  |      mustach       
+----------+------------+--------------------
+        1 | array-each | MoeLarryCurlyShemp
+(1 row)
 
-3|data|MoeLarryCurlyShemp
-4|depth-1|barbarbarbar
-5|depth-2|foobarfoobarfoobarfoobar
-6|object|Larry45
-7|object-mustach|Larry45
-8|partial|Hello Moe! You have 15 new messages.Hello Larry! You have 5 new messages.Hello Curly! You have 1 new messages.
-9|partial-recursion|11.11.1.1
-10|paths|Larry45
-11|string|Hello world
-12|variables|Hello Mick! You have 30 new messages.
+SELECT 2, 'complex', mustach('{"header": "Colors", "hasItems": true, "items": [{"name": "red", "current": true, "url": "#Red"}, {"name": "green", "current": false, "url": "#Green"}, {"name": "blue", "current": false, "url": "#Blue"}]}', '<h1>{{header}}</h1>
+{{#hasItems}}
+  <ul>
+    {{#items}}
+      {{#current}}
+        <li><strong>{{name}}</strong></li>
+      {{/current}}
+      {{^current}}
+        <li><a href="{{url}}">{{name}}</a></li>
+      {{/current}}
+    {{/items}}
+  </ul>
+{{/hasItems}}');
+ ?column? | ?column? |                   mustach                   
+----------+----------+---------------------------------------------
+        2 | complex  | <h1>Colors</h1>                            +
+          |          |   <ul>                                     +
+          |          |         <li><strong>red</strong></li>      +
+          |          |         <li><a href="#Green">green</a></li>+
+          |          |         <li><a href="#Blue">blue</a></li>  +
+          |          |   </ul>                                    +
+          |          | 
+(1 row)
+
+SELECT 3, 'data', mustach('{"names": [{"name": "Moe"}, {"name": "Larry"}, {"name": "Curly"}, {"name": "Shemp"}]}', '{{#names}}{{@index}}{{name}}{{/names}}');
+ ?column? | ?column? |      mustach       
+----------+----------+--------------------
+        3 | data     | MoeLarryCurlyShemp
+(1 row)
+
+SELECT 4, 'depth-1', mustach('{"names": [{"name": "Moe"}, {"name": "Larry"}, {"name": "Curly"}, {"name": "Shemp"}], "foo": "bar"}', '{{#names}}{{foo}}{{/names}}');
+ ?column? | ?column? |   mustach    
+----------+----------+--------------
+        4 | depth-1  | barbarbarbar
+(1 row)
+
+SELECT 5, 'depth-2', mustach('{"names": [{"bat": "foo", "name": ["Moe"]}, {"bat": "foo", "name": ["Larry"]}, {"bat": "foo", "name": ["Curly"]}, {"bat": "foo", "name": ["Shemp"]}], "foo": "bar"}', '{{#names}}{{#name}}{{bat}}{{foo}}{{/name}}{{/names}}');
+ ?column? | ?column? |         mustach          
+----------+----------+--------------------------
+        5 | depth-2  | foobarfoobarfoobarfoobar
+(1 row)
+
+SELECT 6, 'object', mustach('{"person": {"name": "Larry", "age": 45}}', '{{#person}}{{name}}{{age}}{{/person}}');
+ ?column? | ?column? | mustach 
+----------+----------+---------
+        6 | object   | Larry45
+(1 row)
+
+SELECT 7, 'object-mustach', mustach('{"person": {"name": "Larry", "age": 45}}', '{{#person}}{{name}}{{age}}{{/person}}');
+ ?column? |    ?column?    | mustach 
+----------+----------------+---------
+        7 | object-mustach | Larry45
+(1 row)
+
+SELECT 8, 'partial', mustach('{"peeps": [{"name": "Moe", "count": 15}, {"name": "Larry", "count": 5}, {"name": "Curly", "count": 1}], "variables": "Hello {{name}}! You have {{count}} new messages."}', '{{#peeps}}{{>variables}}{{/peeps}}');
+ ?column? | ?column? |                                                    mustach                                                     
+----------+----------+----------------------------------------------------------------------------------------------------------------
+        8 | partial  | Hello Moe! You have 15 new messages.Hello Larry! You have 5 new messages.Hello Curly! You have 1 new messages.
+(1 row)
+
+SELECT 9, 'partial-recursion', mustach('{"name": "1", "kids": [{"name": "1.1", "kids": [{"name": "1.1.1", "kids": []}]}], "recursion": "{{name}}{{#kids}}{{>recursion}}{{/kids}}"}', '{{name}}{{#kids}}{{>recursion}}{{/kids}}');
+ ?column? |     ?column?      |  mustach  
+----------+-------------------+-----------
+        9 | partial-recursion | 11.11.1.1
+(1 row)
+
+SELECT 10, 'paths', mustach('{"person": {"name": {"bar": {"baz": "Larry"}}, "age": 45}}', '{{person.name.bar.baz}}{{person.age}}{{person.foo}}{{animal.age}}');
+ ?column? | ?column? | mustach 
+----------+----------+---------
+       10 | paths    | Larry45
+(1 row)
+
+SELECT 11, 'string', mustach('{}', 'Hello world');
+ ?column? | ?column? |   mustach   
+----------+----------+-------------
+       11 | string   | Hello world
+(1 row)
+
+SELECT 12, 'variables', mustach('{"name": "Mick", "count": 30}', 'Hello {{name}}! You have {{count}} new messages.');
+ ?column? | ?column?  |                mustach                
+----------+-----------+---------------------------------------
+       12 | variables | Hello Mick! You have 30 new messages.
+(1 row)
+
+DROP EXTENSION pg_mustach;

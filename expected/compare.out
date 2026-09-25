@@ -1,23 +1,134 @@
-\unset ECHO
-1|string equal exact match|yes
-2|string equal, matching prefix but different length|
-3|string less-than by real content divergence|yes
-4|string less-or-equal on exact match|yes
-5|string less-than by length tie-break, stored value shorter|yes
-6|string greater-than by length tie-break, stored value longer|yes
-7|empty stored string still fails the truthiness gate even when the compare matches|
-8|bool true equal true renders (compare and truthiness both pass)|yes
-9|bool false equal false does not render (compare matches but false is never truthy)|
-10|null equal null does not render (compare matches but null is never truthy)|
-11|null not equal to an arbitrary literal|
-12|container compared with greater-than always reports greater (default branch)|yes
-13|container compared with less-than never reports lesser|
-14|numeric equal is exact beyond double precision|
-15|numeric equal on exact match beyond double precision|yes
-16|numeric equal is exact for decimals double would round together|
-17|numeric greater-than is exact for decimals double would round together|yes
-18|numeric equal across notations|yes
-19|numeric less-than with negative decimals|yes
-20|numeric compared with a non-number keeps comparing against atof() of it|yes
-21|numeric compared with hex keeps comparing against atof() of it on every version|yes
-22|zero equal zero does not render (compare matches but zero is never truthy)|
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'string equal exact match', mustach('{"s":"abc"}', '{{#s=abc}}yes{{/s=abc}}');
+ ?column? |         ?column?         | mustach 
+----------+--------------------------+---------
+        1 | string equal exact match | yes
+(1 row)
+
+SELECT 2, 'string equal, matching prefix but different length', mustach('{"s":"abc"}', '{{#s=abcd}}yes{{/s=abcd}}');
+ ?column? |                      ?column?                      | mustach 
+----------+----------------------------------------------------+---------
+        2 | string equal, matching prefix but different length | 
+(1 row)
+
+SELECT 3, 'string less-than by real content divergence', mustach('{"s":"abc"}', '{{#s<abd}}yes{{/s<abd}}');
+ ?column? |                  ?column?                   | mustach 
+----------+---------------------------------------------+---------
+        3 | string less-than by real content divergence | yes
+(1 row)
+
+SELECT 4, 'string less-or-equal on exact match', mustach('{"s":"abc"}', '{{#s<=abc}}yes{{/s<=abc}}');
+ ?column? |              ?column?               | mustach 
+----------+-------------------------------------+---------
+        4 | string less-or-equal on exact match | yes
+(1 row)
+
+SELECT 5, 'string less-than by length tie-break, stored value shorter', mustach('{"s":"ab"}', '{{#s<abc}}yes{{/s<abc}}');
+ ?column? |                          ?column?                          | mustach 
+----------+------------------------------------------------------------+---------
+        5 | string less-than by length tie-break, stored value shorter | yes
+(1 row)
+
+SELECT 6, 'string greater-than by length tie-break, stored value longer', mustach('{"s":"abcd"}', '{{#s>abc}}yes{{/s>abc}}');
+ ?column? |                           ?column?                           | mustach 
+----------+--------------------------------------------------------------+---------
+        6 | string greater-than by length tie-break, stored value longer | yes
+(1 row)
+
+SELECT 7, 'empty stored string still fails the truthiness gate even when the compare matches', mustach('{"s":""}', '{{#s<x}}yes{{/s<x}}');
+ ?column? |                                     ?column?                                      | mustach 
+----------+-----------------------------------------------------------------------------------+---------
+        7 | empty stored string still fails the truthiness gate even when the compare matches | 
+(1 row)
+
+SELECT 8, 'bool true equal true renders (compare and truthiness both pass)', mustach('{"b":true}', '{{#b=true}}yes{{/b=true}}');
+ ?column? |                            ?column?                             | mustach 
+----------+-----------------------------------------------------------------+---------
+        8 | bool true equal true renders (compare and truthiness both pass) | yes
+(1 row)
+
+SELECT 9, 'bool false equal false does not render (compare matches but false is never truthy)', mustach('{"b":false}', '{{#b=false}}yes{{/b=false}}');
+ ?column? |                                      ?column?                                      | mustach 
+----------+------------------------------------------------------------------------------------+---------
+        9 | bool false equal false does not render (compare matches but false is never truthy) | 
+(1 row)
+
+SELECT 10, 'null equal null does not render (compare matches but null is never truthy)', mustach('{"n":null}', '{{#n=null}}yes{{/n=null}}');
+ ?column? |                                  ?column?                                  | mustach 
+----------+----------------------------------------------------------------------------+---------
+       10 | null equal null does not render (compare matches but null is never truthy) | 
+(1 row)
+
+SELECT 11, 'null not equal to an arbitrary literal', mustach('{"n":null}', '{{#n=abc}}yes{{/n=abc}}');
+ ?column? |                ?column?                | mustach 
+----------+----------------------------------------+---------
+       11 | null not equal to an arbitrary literal | 
+(1 row)
+
+SELECT 12, 'container compared with greater-than always reports greater (default branch)', mustach('{"o":{"x":1}}', '{{#o>abc}}yes{{/o>abc}}');
+ ?column? |                                   ?column?                                   | mustach 
+----------+------------------------------------------------------------------------------+---------
+       12 | container compared with greater-than always reports greater (default branch) | yes
+(1 row)
+
+SELECT 13, 'container compared with less-than never reports lesser', mustach('{"o":{"x":1}}', '{{#o<abc}}yes{{/o<abc}}');
+ ?column? |                        ?column?                        | mustach 
+----------+--------------------------------------------------------+---------
+       13 | container compared with less-than never reports lesser | 
+(1 row)
+
+SELECT 14, 'numeric equal is exact beyond double precision', mustach('{"n":12345678901234567890}', '{{#n=12345678901234567891}}yes{{/n=12345678901234567891}}');
+ ?column? |                    ?column?                    | mustach 
+----------+------------------------------------------------+---------
+       14 | numeric equal is exact beyond double precision | 
+(1 row)
+
+SELECT 15, 'numeric equal on exact match beyond double precision', mustach('{"n":12345678901234567890}', '{{#n=12345678901234567890}}yes{{/n=12345678901234567890}}');
+ ?column? |                       ?column?                       | mustach 
+----------+------------------------------------------------------+---------
+       15 | numeric equal on exact match beyond double precision | yes
+(1 row)
+
+SELECT 16, 'numeric equal is exact for decimals double would round together', mustach('{"n":0.30000000000000001}', '{{#n=0.3}}yes{{/n=0.3}}');
+ ?column? |                            ?column?                             | mustach 
+----------+-----------------------------------------------------------------+---------
+       16 | numeric equal is exact for decimals double would round together | 
+(1 row)
+
+SELECT 17, 'numeric greater-than is exact for decimals double would round together', mustach('{"n":10}', '{{#n>9.99999999999999999}}yes{{/n>9.99999999999999999}}');
+ ?column? |                                ?column?                                | mustach 
+----------+------------------------------------------------------------------------+---------
+       17 | numeric greater-than is exact for decimals double would round together | yes
+(1 row)
+
+SELECT 18, 'numeric equal across notations', mustach('{"n":150}', '{{#n=1.50e2}}yes{{/n=1.50e2}}');
+ ?column? |            ?column?            | mustach 
+----------+--------------------------------+---------
+       18 | numeric equal across notations | yes
+(1 row)
+
+SELECT 19, 'numeric less-than with negative decimals', mustach('{"n":-5}', '{{#n<-4.5}}yes{{/n<-4.5}}');
+ ?column? |                 ?column?                 | mustach 
+----------+------------------------------------------+---------
+       19 | numeric less-than with negative decimals | yes
+(1 row)
+
+SELECT 20, 'numeric compared with a non-number keeps comparing against atof() of it', mustach('{"n":5}', '{{#n>abc}}yes{{/n>abc}}');
+ ?column? |                                ?column?                                 | mustach 
+----------+-------------------------------------------------------------------------+---------
+       20 | numeric compared with a non-number keeps comparing against atof() of it | yes
+(1 row)
+
+SELECT 21, 'numeric compared with hex keeps comparing against atof() of it on every version', mustach('{"n":16}', '{{#n=0x10}}yes{{/n=0x10}}');
+ ?column? |                                    ?column?                                     | mustach 
+----------+---------------------------------------------------------------------------------+---------
+       21 | numeric compared with hex keeps comparing against atof() of it on every version | yes
+(1 row)
+
+SELECT 22, 'zero equal zero does not render (compare matches but zero is never truthy)', mustach('{"n":0}', '{{#n=0}}yes{{/n=0}}');
+ ?column? |                                  ?column?                                  | mustach 
+----------+----------------------------------------------------------------------------+---------
+       22 | zero equal zero does not render (compare matches but zero is never truthy) | 
+(1 row)
+
+DROP EXTENSION pg_mustach;

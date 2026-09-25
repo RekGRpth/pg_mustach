@@ -1,4 +1,28 @@
-\unset ECHO
+CREATE EXTENSION pg_mustach;
+COPY (
+SELECT 1, 'Inline', mustach('{}', E'12345{{! Comment Block! }}67890')
+UNION
+SELECT 2, 'Multiline', mustach('{}', E'12345{{!\n  This is a\n  multi-line comment...\n}}67890\n')
+UNION
+SELECT 3, 'Standalone', mustach('{}', E'Begin.\n{{! Comment Block! }}\nEnd.\n')
+UNION
+SELECT 4, 'Indented Standalone', mustach('{}', E'Begin.\n  {{! Indented Comment Block! }}\nEnd.\n')
+UNION
+SELECT 5, 'Standalone Line Endings', mustach('{}', E'|\r\n{{! Standalone Comment }}\r\n|')
+UNION
+SELECT 6, 'Standalone Without Previous Line', mustach('{}', E'  {{! I''m Still Standalone }}\n!')
+UNION
+SELECT 7, 'Standalone Without Newline', mustach('{}', E'!\n  {{! I''m Still Standalone }}')
+UNION
+SELECT 8, 'Multiline Standalone', mustach('{}', E'Begin.\n{{!\nSomething''s going on here...\n}}\nEnd.\n')
+UNION
+SELECT 9, 'Indented Multiline Standalone', mustach('{}', E'Begin.\n  {{!\n    Something''s going on here...\n  }}\nEnd.\n')
+UNION
+SELECT 10, 'Indented Inline', mustach('{}', E'  12 {{! 34 }}\n')
+UNION
+SELECT 11, 'Surrounding Whitespace', mustach('{}', E'12345 {{! Comment Block! }} 67890')
+ORDER BY 1
+) TO stdout;
 1	Inline	1234567890
 2	Multiline	1234567890\n
 3	Standalone	Begin.\nEnd.\n
@@ -10,3 +34,4 @@
 9	Indented Multiline Standalone	Begin.\nEnd.\n
 10	Indented Inline	  12 \n
 11	Surrounding Whitespace	12345  67890
+DROP EXTENSION pg_mustach;

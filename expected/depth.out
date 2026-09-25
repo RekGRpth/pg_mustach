@@ -1,6 +1,35 @@
-\unset ECHO
-1|section nesting one level below the runtime depth limit renders|X
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'section nesting one level below the runtime depth limit renders', mustach('{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":true}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}', '{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}X{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}');
+ ?column? |                            ?column?                             | mustach 
+----------+-----------------------------------------------------------------+---------
+        1 | section nesting one level below the runtime depth limit renders | X
+(1 row)
+
+SELECT 2, 'section nesting at the runtime depth limit errors', mustach('{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":true}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}', '{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}{{#a}}X{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}{{/a}}');
 ERROR:  MUSTACH_ERROR_TOO_DEEP
-3|thousands of skipped sections in a row render empty|[]
-4|a skipped section whose body spans several blocks is jumped over|[]B
-5|thousands of entered sections in a row render|5000
+--
+-- Templates are encoded in blocks of 1024 words; sections ending on, or
+-- skipped across, block boundaries used to jump to garbage addresses in
+-- libmustach -- MUSTACH_ERROR_CLOSING from 722 skipped sections in a row
+-- on, or from a skipped section whose body spans 3+ blocks. Needs a
+-- libmustach with the fix.
+--
+SELECT 3, 'thousands of skipped sections in a row render empty', '[' || mustach('{}', repeat('{{#a}}x{{/a}}', 5000)) || ']';
+ ?column? |                      ?column?                       | ?column? 
+----------+-----------------------------------------------------+----------
+        3 | thousands of skipped sections in a row render empty | []
+(1 row)
+
+SELECT 4, 'a skipped section whose body spans several blocks is jumped over', mustach('{"b":"B"}', '[{{#a}}' || repeat('x{{b}}', 3000) || '{{/a}}]{{b}}');
+ ?column? |                             ?column?                             | mustach 
+----------+------------------------------------------------------------------+---------
+        4 | a skipped section whose body spans several blocks is jumped over | []B
+(1 row)
+
+SELECT 5, 'thousands of entered sections in a row render', length(mustach('{"b":1}', repeat('{{#b}}y{{/b}}', 5000)));
+ ?column? |                   ?column?                    | length 
+----------+-----------------------------------------------+--------
+        5 | thousands of entered sections in a row render |   5000
+(1 row)
+
+DROP EXTENSION pg_mustach;

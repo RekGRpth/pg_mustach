@@ -1,9 +1,50 @@
-\unset ECHO
-1|dotted numeric index selects array element|b
-2|out-of-range index misses|
-3|non-numeric index misses|
-4|negative index misses|
-5|trailing garbage after digits misses|
-6|chained dotted index into a nested array|y
-7|dotted index feeds section truthiness (truthy element)|yes
-8|dotted index feeds section truthiness (falsey element)|
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'dotted numeric index selects array element', mustach('{"list":["a","b","c"]}', '{{list.1}}');
+ ?column? |                  ?column?                  | mustach 
+----------+--------------------------------------------+---------
+        1 | dotted numeric index selects array element | b
+(1 row)
+
+SELECT 2, 'out-of-range index misses', mustach('{"list":["a","b","c"]}', '{{list.5}}');
+ ?column? |         ?column?          | mustach 
+----------+---------------------------+---------
+        2 | out-of-range index misses | 
+(1 row)
+
+SELECT 3, 'non-numeric index misses', mustach('{"list":["a","b","c"]}', '{{list.foo}}');
+ ?column? |         ?column?         | mustach 
+----------+--------------------------+---------
+        3 | non-numeric index misses | 
+(1 row)
+
+SELECT 4, 'negative index misses', mustach('{"list":["a","b","c"]}', '{{list.-1}}');
+ ?column? |       ?column?        | mustach 
+----------+-----------------------+---------
+        4 | negative index misses | 
+(1 row)
+
+SELECT 5, 'trailing garbage after digits misses', mustach('{"list":["a","b","c"]}', '{{list.1abc}}');
+ ?column? |               ?column?               | mustach 
+----------+--------------------------------------+---------
+        5 | trailing garbage after digits misses | 
+(1 row)
+
+SELECT 6, 'chained dotted index into a nested array', mustach('{"m":[["x","y"],["z"]]}', '{{m.0.1}}');
+ ?column? |                 ?column?                 | mustach 
+----------+------------------------------------------+---------
+        6 | chained dotted index into a nested array | y
+(1 row)
+
+SELECT 7, 'dotted index feeds section truthiness (truthy element)', mustach('{"list":[1,2,3]}', '{{#list.0}}yes{{/list.0}}');
+ ?column? |                        ?column?                        | mustach 
+----------+--------------------------------------------------------+---------
+        7 | dotted index feeds section truthiness (truthy element) | yes
+(1 row)
+
+SELECT 8, 'dotted index feeds section truthiness (falsey element)', mustach('{"list":[0,2,3]}', '{{#list.0}}yes{{/list.0}}');
+ ?column? |                        ?column?                        | mustach 
+----------+--------------------------------------------------------+---------
+        8 | dotted index feeds section truthiness (falsey element) | 
+(1 row)
+
+DROP EXTENSION pg_mustach;

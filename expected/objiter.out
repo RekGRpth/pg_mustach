@@ -1,8 +1,44 @@
-\unset ECHO
-1|basic key/value iteration| a:1 b:true
-2|empty object iterates to nothing|[]
-3|scalar is not iterable as object|[]
-4|array is not iterable as object|[]
-5|inverted section on object iteration key|[empty]
-6|nested section reaches outer objiter key|a=1 b=2 
-7|object iteration nested inside array iteration|a:1;b:2;
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'basic key/value iteration', mustach('{"s":{"a":1,"b":true}}', '{{#s.*}} {{*}}:{{.}}{{/s.*}}');
+ ?column? |         ?column?          |   mustach   
+----------+---------------------------+-------------
+        1 | basic key/value iteration |  a:1 b:true
+(1 row)
+
+SELECT 2, 'empty object iterates to nothing', mustach('{"s":{}}', '[{{#s.*}}{{*}}{{/s.*}}]');
+ ?column? |             ?column?             | mustach 
+----------+----------------------------------+---------
+        2 | empty object iterates to nothing | []
+(1 row)
+
+SELECT 3, 'scalar is not iterable as object', mustach('{"s":5}', '[{{#s.*}}{{*}}{{/s.*}}]');
+ ?column? |             ?column?             | mustach 
+----------+----------------------------------+---------
+        3 | scalar is not iterable as object | []
+(1 row)
+
+SELECT 4, 'array is not iterable as object', mustach('{"s":[1,2]}', '[{{#s.*}}{{*}}{{/s.*}}]');
+ ?column? |            ?column?             | mustach 
+----------+---------------------------------+---------
+        4 | array is not iterable as object | []
+(1 row)
+
+SELECT 5, 'inverted section on object iteration key', mustach('{"s":{}}', '[{{^s.*}}empty{{/s.*}}]');
+ ?column? |                 ?column?                 | mustach 
+----------+------------------------------------------+---------
+        5 | inverted section on object iteration key | [empty]
+(1 row)
+
+SELECT 6, 'nested section reaches outer objiter key', mustach('{"s":{"a":{"x":1},"b":{"x":2}}}', '{{#s.*}}{{#.}}{{*}}={{x}} {{/.}}{{/s.*}}');
+ ?column? |                 ?column?                 | mustach  
+----------+------------------------------------------+----------
+        6 | nested section reaches outer objiter key | a=1 b=2 
+(1 row)
+
+SELECT 7, 'object iteration nested inside array iteration', mustach('{"list":[{"s":{"a":1,"b":2}}]}', '{{#list}}{{#s.*}}{{*}}:{{.}};{{/s.*}}{{/list}}');
+ ?column? |                    ?column?                    | mustach  
+----------+------------------------------------------------+----------
+        7 | object iteration nested inside array iteration | a:1;b:2;
+(1 row)
+
+DROP EXTENSION pg_mustach;

@@ -1,14 +1,83 @@
-\unset ECHO
-1|colon flag value|1
-2|compare flag value|16
-3|noextensions value|0
-4|allextensions value|1023
-5|default flags GUC|1023
-6|colon extension enabled by default|b
-0
-7|colon extension disabled|
-17
-8|colon extension re-enabled in subtransaction|b
-9|combined flags in subtransaction|17
-10|flags reverted after rollback to savepoint|
-11|flags reverted after outer rollback|1023
+BEGIN;
+CREATE EXTENSION pg_mustach;
+SELECT 1, 'colon flag value', mustach_with_colon();
+ ?column? |     ?column?     | mustach_with_colon 
+----------+------------------+--------------------
+        1 | colon flag value |                  1
+(1 row)
+
+SELECT 2, 'compare flag value', mustach_with_compare();
+ ?column? |      ?column?      | mustach_with_compare 
+----------+--------------------+----------------------
+        2 | compare flag value |                   16
+(1 row)
+
+SELECT 3, 'noextensions value', mustach_with_noextensions();
+ ?column? |      ?column?      | mustach_with_noextensions 
+----------+--------------------+---------------------------
+        3 | noextensions value |                         0
+(1 row)
+
+SELECT 4, 'allextensions value', mustach_with_allextensions();
+ ?column? |      ?column?       | mustach_with_allextensions 
+----------+---------------------+----------------------------
+        4 | allextensions value |                       1023
+(1 row)
+
+SELECT 5, 'default flags GUC', current_setting('pg_mustach.flags');
+ ?column? |     ?column?      | current_setting 
+----------+-------------------+-----------------
+        5 | default flags GUC | 1023
+(1 row)
+
+SELECT 6, 'colon extension enabled by default', mustach('{"a":"b"}', '{{:a}}');
+ ?column? |              ?column?              | mustach 
+----------+------------------------------------+---------
+        6 | colon extension enabled by default | b
+(1 row)
+
+SELECT mustach_set_flags(mustach_with_noextensions());
+ mustach_set_flags 
+-------------------
+                 0
+(1 row)
+
+SELECT 7, 'colon extension disabled', mustach('{"a":"b"}', '{{:a}}');
+ ?column? |         ?column?         | mustach 
+----------+--------------------------+---------
+        7 | colon extension disabled | 
+(1 row)
+
+SAVEPOINT sp1;
+SELECT mustach_set_flags(mustach_with_colon() | mustach_with_compare(), true);
+ mustach_set_flags 
+-------------------
+                17
+(1 row)
+
+SELECT 8, 'colon extension re-enabled in subtransaction', mustach('{"a":"b"}', '{{:a}}');
+ ?column? |                   ?column?                   | mustach 
+----------+----------------------------------------------+---------
+        8 | colon extension re-enabled in subtransaction | b
+(1 row)
+
+SELECT 9, 'combined flags in subtransaction', current_setting('pg_mustach.flags');
+ ?column? |             ?column?             | current_setting 
+----------+----------------------------------+-----------------
+        9 | combined flags in subtransaction | 17
+(1 row)
+
+ROLLBACK TO SAVEPOINT sp1;
+SELECT 10, 'flags reverted after rollback to savepoint', mustach('{"a":"b"}', '{{:a}}');
+ ?column? |                  ?column?                  | mustach 
+----------+--------------------------------------------+---------
+       10 | flags reverted after rollback to savepoint | 
+(1 row)
+
+ROLLBACK;
+SELECT 11, 'flags reverted after outer rollback', current_setting('pg_mustach.flags');
+ ?column? |              ?column?               | current_setting 
+----------+-------------------------------------+-----------------
+       11 | flags reverted after outer rollback | 1023
+(1 row)
+

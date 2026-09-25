@@ -1,11 +1,3 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 COPY (
 SELECT 1, 'Overflowing double is truthy', mustach('{"n": 1e400}', E'\"{{#n}}yes{{/n}}\"')
@@ -29,4 +21,4 @@ UNION
 SELECT 10, 'Ordered compare against overflowing double does not error', mustach('{"n": 1e400}', E'\"{{#n<10}}lt{{/n<10}}\"')
 ORDER BY 1
 ) TO stdout;
-ROLLBACK;
+DROP EXTENSION pg_mustach;

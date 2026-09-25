@@ -1,11 +1,3 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 COPY (
 SELECT 1, 'Inline', mustach('{}', E'12345{{! Comment Block! }}67890')
@@ -31,4 +23,4 @@ UNION
 SELECT 11, 'Surrounding Whitespace', mustach('{}', E'12345 {{! Comment Block! }} 67890')
 ORDER BY 1
 ) TO stdout;
-ROLLBACK;
+DROP EXTENSION pg_mustach;

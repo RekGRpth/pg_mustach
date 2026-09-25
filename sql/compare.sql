@@ -1,11 +1,3 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 SELECT 1, 'string equal exact match', mustach('{"s":"abc"}', '{{#s=abc}}yes{{/s=abc}}');
 SELECT 2, 'string equal, matching prefix but different length', mustach('{"s":"abc"}', '{{#s=abcd}}yes{{/s=abcd}}');
@@ -29,4 +21,4 @@ SELECT 19, 'numeric less-than with negative decimals', mustach('{"n":-5}', '{{#n
 SELECT 20, 'numeric compared with a non-number keeps comparing against atof() of it', mustach('{"n":5}', '{{#n>abc}}yes{{/n>abc}}');
 SELECT 21, 'numeric compared with hex keeps comparing against atof() of it on every version', mustach('{"n":16}', '{{#n=0x10}}yes{{/n=0x10}}');
 SELECT 22, 'zero equal zero does not render (compare matches but zero is never truthy)', mustach('{"n":0}', '{{#n=0}}yes{{/n=0}}');
-ROLLBACK;
+DROP EXTENSION pg_mustach;

@@ -1,11 +1,3 @@
-\unset ECHO
-\set QUIET 1
-\pset format unaligned
-\pset tuples_only true
-\pset pager off
-\set ON_ERROR_ROLLBACK 1
-\set ON_ERROR_STOP true
-BEGIN;
 CREATE EXTENSION pg_mustach;
 SELECT 1, 'array-each', mustach('{"names": [{"name": "Moe"}, {"name": "Larry"}, {"name": "Curly"}, {"name": "Shemp"}]}', '{{#names}}{{name}}{{/names}}');
 SELECT 2, 'complex', mustach('{"header": "Colors", "hasItems": true, "items": [{"name": "red", "current": true, "url": "#Red"}, {"name": "green", "current": false, "url": "#Green"}, {"name": "blue", "current": false, "url": "#Blue"}]}', '<h1>{{header}}</h1>
@@ -31,4 +23,4 @@ SELECT 9, 'partial-recursion', mustach('{"name": "1", "kids": [{"name": "1.1", "
 SELECT 10, 'paths', mustach('{"person": {"name": {"bar": {"baz": "Larry"}}, "age": 45}}', '{{person.name.bar.baz}}{{person.age}}{{person.foo}}{{animal.age}}');
 SELECT 11, 'string', mustach('{}', 'Hello world');
 SELECT 12, 'variables', mustach('{"name": "Mick", "count": 30}', 'Hello {{name}}! You have {{count}} new messages.');
-ROLLBACK;
+DROP EXTENSION pg_mustach;
