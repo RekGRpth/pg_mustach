@@ -311,6 +311,10 @@ static int leave(void *closure) {
     return 0;
 }
 
+/* A zero sbuf->length means "unknown, NUL-terminated" to mustach, which
+ * jsonb string contents aren't: an empty string or key must be handed over
+ * as "" instead, or mustach strlen()s past it into whatever follows it in
+ * the jsonb datum, and past the datum's end if it's the last thing there. */
 static int get(void *closure, struct mustach_sbuf *sbuf, int key) {
     struct expl *e = closure;
     if (key) {
@@ -318,7 +322,7 @@ static int get(void *closure, struct mustach_sbuf *sbuf, int key) {
         jbsel *k = NULL;
         for (d = e->depth; d >= 0; d--)
             if (e->stack[d].is_objiter) { k = &e->stack[d].key; break; }
-        if (k && k->kind == SEL_STRING) {
+        if (k && k->kind == SEL_STRING && k->v.string.len > 0) {
             sbuf->value = k->v.string.val;
             sbuf->length = (size_t) k->v.string.len;
         } else {
@@ -329,7 +333,7 @@ static int get(void *closure, struct mustach_sbuf *sbuf, int key) {
     }
     switch (e->selection.kind) {
     case SEL_STRING:
-        sbuf->value = e->selection.v.string.val;
+        sbuf->value = e->selection.v.string.len > 0 ? e->selection.v.string.val : "";
         sbuf->length = (size_t) e->selection.v.string.len;
         break;
     case SEL_NULL:

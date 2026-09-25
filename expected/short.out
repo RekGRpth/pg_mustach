@@ -4,3 +4,9 @@
 3|an empty template renders empty, not whatever follows it in memory|[]
 4|an empty template writes an empty file|t
 5|empty template file size|0
+6|an empty string value renders empty, not whatever follows it in the jsonb|[]
+7|same, unescaped|[]
+8|same, as an array element|[<><XYZ>]
+9|same, as a partial from the data|[]
+10|an empty key renders empty under object iteration|[<=v><b=XYZ>]
+11|an empty string as the last thing in the jsonb renders empty|[]
