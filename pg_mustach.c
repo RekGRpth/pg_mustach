@@ -278,6 +278,23 @@ static void pg_mustach_abort(FILE *file, char **data, const char *name) {
     if (name) unlink(name);
 }
 
+/* Close file once rendering returned rc, and fail the call if either the
+ * render or the close did. fclose() is where buffered output actually
+ * reaches the target file, and for open_memstream() where *data gets
+ * finalized, so its failure (e.g. ENOSPC) must not be reported as success
+ * over a truncated file or a NULL *data. On failure *data is freed and the
+ * target file removed before raising the ERROR. */
+static void pg_mustach_close(FILE *file, int rc, const char *err, char **data, const char *name) {
+    int close_errno = fclose(file) ? errno : 0;
+    if (rc == MUSTACH_OK && !close_errno) return;
+    if (*data) free(*data);
+    if (name) unlink(name);
+    pg_mustach_check(rc, err);
+    errno = close_errno;
+    if (name) ereport(ERROR, (errcode_for_file_access(), errmsg("could not write file \"%s\": %m", name)));
+    ereport(ERROR, (errcode(ERRCODE_OUT_OF_MEMORY), errmsg("could not write mustach output: %m")));
+}
+
 EXTENSION(pg_mustach) {
     char *data = NULL;
     char *err = NULL;
@@ -320,12 +337,7 @@ EXTENSION(pg_mustach) {
         pg_mustach_abort(file, &data, name);
         PG_RE_THROW();
     } PG_END_TRY();
-    fclose(file);
-    if (rc != MUSTACH_OK) {
-        if (data) free(data);
-        if (name) unlink(name);
-        pg_mustach_check(rc, err);
-    }
+    pg_mustach_close(file, rc, err, &data, name);
     PG_FREE_IF_COPY(json, 0);
     PG_FREE_IF_COPY(template, 1);
     switch (PG_NARGS()) {
@@ -405,12 +417,7 @@ EXTENSION(pg_mustach_json) {
         pg_mustach_abort(file, &data, name);
         PG_RE_THROW();
     } PG_END_TRY();
-    fclose(file);
-    if (rc != MUSTACH_OK) {
-        if (data) free(data);
-        if (name) unlink(name);
-        pg_mustach_check(rc, NULL);
-    }
+    pg_mustach_close(file, rc, NULL, &data, name);
     PG_FREE_IF_COPY(json, 0);
     switch (PG_NARGS()) {
         case 2:
