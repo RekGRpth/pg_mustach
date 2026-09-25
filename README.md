@@ -72,6 +72,10 @@ SELECT mustach_json('{"a":"b"}');  -- b
 - `mustach_free(tplname name DEFAULT NULL) RETURNS bool` — releases a prepared template,
   returning whether `tplname` was still known.
 
+`tplname` is of type `name`, so like any identifier in PostgreSQL it is silently truncated to 63
+bytes (`NAMEDATALEN - 1`): two longer names sharing their first 63 bytes address the same
+template.
+
 Prepared templates are backend-local (not visible from other sessions) and never outlive the
 backend, but by default they don't even outlive the transaction they were prepared in — see
 below.
