@@ -17,6 +17,7 @@ int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int 
 int mustach_prepare_jsonb(const char *template, size_t length, int flags, mustach_template_t **templ);
 int mustach_render_jsonb(mustach_template_t *templ, Jsonb *root, int flags, FILE *file);
 void mustach_destroy_jsonb(mustach_template_t *templ);
+int mustach_partial_from_data_jsonb(const char *name, mustach_sbuf_t *sbuf);
 
 /* Not declared portably across PG versions (utils/fmgrprotos.h, which
  * carries these from PG12 on, doesn't exist before that): declare
@@ -330,10 +331,64 @@ static const struct mustach_wrap_itf mustach_jsonb_wrap_itf = {
     .get = get
 };
 
+/* Same callbacks, minus start: rendering through this picks up an
+ * in-progress render's state (current section context included) as is,
+ * instead of resetting it back to the root. */
+static const struct mustach_wrap_itf mustach_jsonb_lookup_itf = {
+    .start = NULL,
+    .stop = NULL,
+    .compare = compare,
+    .sel = sel,
+    .subsel = subsel,
+    .enter = enter,
+    .next = next,
+    .leave = leave,
+    .get = get
+};
+
+/* mustach_wrap_get_partial is a global hook with no closure, so the render
+ * in progress is published here for mustach_partial_from_data_jsonb(). */
+static struct expl *current_expl = NULL;
+static int current_flags = 0;
+
+/* Look name up in the json data of the render in progress the same way
+ * mustach-wrap.c's own get_partial_buf() would (via getoptional(): same key
+ * splitting, json pointer, compare and objiter handling, from the current
+ * section context), by rendering "{{&name}}" against that render's state
+ * with ErrorUndefined, so a missing name fails instead of rendering empty.
+ * Delimiters are switched to \1 and \2 first, so a name containing "}}"
+ * (possible under custom delimiters) can't break the tag. Returns 1 with
+ * sbuf filled (malloc'd, released by mustach via freecb) if found. */
+int mustach_partial_from_data_jsonb(const char *name, mustach_sbuf_t *sbuf) {
+    static const char head[] = "{{=\1 \2=}}\1&";
+    size_t length = strlen(name);
+    size_t size;
+    char *template;
+    char *result;
+    int rc;
+    if (!current_expl || strpbrk(name, "\1\2")) return 0;
+    template = palloc(sizeof head + length);
+    memcpy(template, head, sizeof head - 1);
+    memcpy(template + sizeof head - 1, name, length);
+    template[sizeof head - 1 + length] = '\2';
+    rc = mustach_wrap_mem(template, sizeof head + length, &mustach_jsonb_lookup_itf, current_expl, current_flags | Mustach_With_ErrorUndefined, &result, &size);
+    pfree(template);
+    if (rc != MUSTACH_OK) return 0;
+    sbuf->value = result;
+    sbuf->length = size;
+    sbuf->freecb = free;
+    return 1;
+}
+
 int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int flags, FILE *file, char **err) {
     struct expl e;
+    int rc;
     e.root = root;
-    return mustach_wrap_file(template, length, &mustach_jsonb_wrap_itf, &e, flags, file);
+    current_expl = &e;
+    current_flags = flags;
+    rc = mustach_wrap_file(template, length, &mustach_jsonb_wrap_itf, &e, flags, file);
+    current_expl = NULL;
+    return rc;
 }
 
 /* mustach_make_template() doesn't copy the template text: the built
@@ -362,8 +417,13 @@ int mustach_prepare_jsonb(const char *template, size_t length, int flags, mustac
 
 int mustach_render_jsonb(mustach_template_t *templ, Jsonb *root, int flags, FILE *file) {
     struct expl e;
+    int rc;
     e.root = root;
-    return mustach_wrap_apply(templ, &mustach_jsonb_wrap_itf, &e, flags, mustach_fwrite_cb, NULL, file);
+    current_expl = &e;
+    current_flags = flags;
+    rc = mustach_wrap_apply(templ, &mustach_jsonb_wrap_itf, &e, flags, mustach_fwrite_cb, NULL, file);
+    current_expl = NULL;
+    return rc;
 }
 
 void mustach_destroy_jsonb(mustach_template_t *templ) {

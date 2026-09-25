@@ -28,6 +28,29 @@ SELECT mustach('{}', E'"{{>nonexistent_partial_name}}"');
 --
 SET ROLE mustach_test_none;
 SELECT mustach('{}', E'{{>/etc/hostname}}');
+
+--
+-- A denied file must not shadow a partial the json data provides. Relative
+-- partial names resolve against the data directory, so "base" and "global"
+-- always exist as files there -- the data must win anyway, in both lookup
+-- orders, from within a section, and for a prepared template; only a name
+-- the data lacks still raises the denial. A name containing "}}" (possible
+-- under custom delimiters) must resolve from the data too.
+--
+SELECT mustach('{"base": "from data"}', E'[{{>base}}]');
+SELECT mustach('{"x": {"base": "from section"}}', E'{{#x}}[{{>base}}]{{/x}}');
+SELECT mustach('{"a": {"b": "from dotted"}}', E'[{{>a.b}}]');
+SELECT mustach('{"a}}b": "from custom delimiters"}', E'{{=<% %>=}}[<%>a}}b%>]');
+SELECT mustach('{"base": "x"}', E'[{{>global}}]');
+SELECT mustach_set_flags(mustach_with_allextensions() & ~mustach_with_partialdatafirst());
+SELECT mustach('{"base": "from data, file first"}', E'[{{>base}}]');
+SELECT mustach('{"x": {"base": "from section, file first"}}', E'{{#x}}[{{>base}}]{{/x}}');
+SELECT mustach('{"base": "x"}', E'[{{>global}}]');
+RESET pg_mustach.flags;
+BEGIN;
+SELECT mustach_template(E'[{{>base}}]');
+SELECT mustach_json('{"base": "from data, prepared"}');
+COMMIT;
 RESET ROLE;
 
 --
@@ -82,6 +105,13 @@ ALTER ROLE mustach_test_full SET pg_mustach.whitelist = 'file:///etc/hostname';
 
 SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS whitelist_exact_match_nonempty;
 SELECT mustach('{}', E'{{>/etc/passwd}}');
+
+-- Same for a superuser the whitelist narrows: excluded files don't shadow
+-- the json data.
+SELECT mustach('{"base": "from data"}', E'[{{>base}}]');
+SELECT mustach_set_flags(mustach_with_allextensions() & ~mustach_with_partialdatafirst());
+SELECT mustach('{"base": "from data, file first"}', E'[{{>base}}]');
+RESET pg_mustach.flags;
 
 --
 -- A file:// entry with a trailing slash permits anything under that

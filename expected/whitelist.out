@@ -37,6 +37,77 @@ SET ROLE mustach_test_none;
 SELECT mustach('{}', E'{{>/etc/hostname}}');
 ERROR:  permission denied to access "/etc/hostname"
 DETAIL:  whitelist does not permit this file or URL for the current role.
+--
+-- A denied file must not shadow a partial the json data provides. Relative
+-- partial names resolve against the data directory, so "base" and "global"
+-- always exist as files there -- the data must win anyway, in both lookup
+-- orders, from within a section, and for a prepared template; only a name
+-- the data lacks still raises the denial. A name containing "}}" (possible
+-- under custom delimiters) must resolve from the data too.
+--
+SELECT mustach('{"base": "from data"}', E'[{{>base}}]');
+   mustach   
+-------------
+ [from data]
+(1 row)
+
+SELECT mustach('{"x": {"base": "from section"}}', E'{{#x}}[{{>base}}]{{/x}}');
+    mustach     
+----------------
+ [from section]
+(1 row)
+
+SELECT mustach('{"a": {"b": "from dotted"}}', E'[{{>a.b}}]');
+    mustach    
+---------------
+ [from dotted]
+(1 row)
+
+SELECT mustach('{"a}}b": "from custom delimiters"}', E'{{=<% %>=}}[<%>a}}b%>]');
+         mustach          
+--------------------------
+ [from custom delimiters]
+(1 row)
+
+SELECT mustach('{"base": "x"}', E'[{{>global}}]');
+ERROR:  permission denied to access "global"
+DETAIL:  whitelist does not permit this file or URL for the current role.
+SELECT mustach_set_flags(mustach_with_allextensions() & ~mustach_with_partialdatafirst());
+ mustach_set_flags 
+-------------------
+               511
+(1 row)
+
+SELECT mustach('{"base": "from data, file first"}', E'[{{>base}}]');
+         mustach         
+-------------------------
+ [from data, file first]
+(1 row)
+
+SELECT mustach('{"x": {"base": "from section, file first"}}', E'{{#x}}[{{>base}}]{{/x}}');
+          mustach           
+----------------------------
+ [from section, file first]
+(1 row)
+
+SELECT mustach('{"base": "x"}', E'[{{>global}}]');
+ERROR:  permission denied to access "global"
+DETAIL:  whitelist does not permit this file or URL for the current role.
+RESET pg_mustach.flags;
+BEGIN;
+SELECT mustach_template(E'[{{>base}}]');
+ mustach_template 
+------------------
+ 
+(1 row)
+
+SELECT mustach_json('{"base": "from data, prepared"}');
+     mustach_json      
+-----------------------
+ [from data, prepared]
+(1 row)
+
+COMMIT;
 RESET ROLE;
 --
 -- pg_mustach.whitelist can grant mustach_test_none access despite it not
@@ -103,6 +174,27 @@ SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS whitelist_exact
 SELECT mustach('{}', E'{{>/etc/passwd}}');
 ERROR:  permission denied to access "/etc/passwd"
 DETAIL:  whitelist does not permit this file or URL for the current role.
+-- Same for a superuser the whitelist narrows: excluded files don't shadow
+-- the json data.
+SELECT mustach('{"base": "from data"}', E'[{{>base}}]');
+   mustach   
+-------------
+ [from data]
+(1 row)
+
+SELECT mustach_set_flags(mustach_with_allextensions() & ~mustach_with_partialdatafirst());
+ mustach_set_flags 
+-------------------
+               511
+(1 row)
+
+SELECT mustach('{"base": "from data, file first"}', E'[{{>base}}]');
+         mustach         
+-------------------------
+ [from data, file first]
+(1 row)
+
+RESET pg_mustach.flags;
 --
 -- A file:// entry with a trailing slash permits anything under that
 -- directory, but the resolved path is realpath()-canonicalized before

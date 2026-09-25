@@ -32,6 +32,7 @@ int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int 
 int mustach_prepare_jsonb(const char *template, size_t length, int flags, mustach_template_t **templ);
 int mustach_render_jsonb(mustach_template_t *templ, Jsonb *root, int flags, FILE *file);
 void mustach_destroy_jsonb(mustach_template_t *templ);
+int mustach_partial_from_data_jsonb(const char *name, mustach_sbuf_t *sbuf);
 
 PG_MODULE_MAGIC;
 
@@ -41,33 +42,73 @@ static bool pg_mustach_privileged(void) {
     return superuser();
 }
 
-/* {{>name}} partials that mustach-wrap.c can't resolve from the json data
- * fall back to reading "name" (and "name.mustache") as a local file path --
- * see get_partial_from_file() in mustach-wrap.c. Without this hook that
- * happens unconditionally, so any role with EXECUTE on mustach() could read
- * arbitrary server files via a crafted template, unlike the 3-arg mustach()
- * writing a file, which is already gated on superuser. Mirrors pg_curl's
+static int pg_mustach_flags = Mustach_With_AllExtensions;
+
+/* pg_whitelist_check_local(), but answering false where it would raise its
+ * permission-denied ERROR. Catching that without a subtransaction is fine:
+ * pg_whitelist_check_local() holds no resources or locks, only palloc's,
+ * and anything but the denial itself is re-thrown untouched. */
+static bool pg_mustach_whitelisted(const char *name, const char *resolved, bool privileged) {
+    MemoryContext context = CurrentMemoryContext;
+    volatile bool allowed = true;
+    PG_TRY(); {
+        pg_whitelist_check_local(name, resolved, privileged);
+    } PG_CATCH(); {
+        ErrorData *edata;
+        MemoryContextSwitchTo(context);
+        edata = CopyErrorData();
+        if (edata->sqlerrcode != ERRCODE_INSUFFICIENT_PRIVILEGE) PG_RE_THROW();
+        FlushErrorState();
+        FreeErrorData(edata);
+        allowed = false;
+    } PG_END_TRY();
+    return allowed;
+}
+
+/* {{>name}} partials: mustach-wrap.c by itself resolves them from the json
+ * data and from reading "name" (or "name.mustache") as a local file path --
+ * see get_partial_buf() there -- the latter unconditionally, so any role
+ * with EXECUTE on mustach() could read arbitrary server files via a crafted
+ * template, unlike the 3-arg mustach() writing a file, which is already
+ * gated on superuser. This hook replaces that lookup entirely (it never
+ * returns MUSTACH_ERROR_NOT_FOUND, which would fall back to it), keeping
+ * its order -- json data first under Mustach_With_PartialDataFirst, the
+ * file first otherwise -- with file access gated like pg_curl's
  * pg_curl_privileged(): privileged (superuser) callers are admitted unless
  * pg_mustach.whitelist explicitly excludes the resolved path; unprivileged
- * callers are admitted only if it explicitly includes it. */
+ * callers are admitted only if it explicitly includes it. A file that's
+ * there but not admitted only raises ERROR when the json data can't provide
+ * the partial either -- relative names resolve against the data directory,
+ * so e.g. {{>base}} would otherwise hit PGDATA/base instead of "base" in
+ * the data. Nothing found anywhere renders empty, as mustach-wrap.c does. */
 static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
     static char extension[] = ".mustache";
+    bool data_first = (pg_mustach_flags & Mustach_With_PartialDataFirst) != 0;
     bool privileged = pg_mustach_privileged();
+    bool found;
     char path[PATH_MAX];
     char resolved[PATH_MAX];
     size_t length = strlen(name);
+    if (data_first && mustach_partial_from_data_jsonb(name, sbuf)) return MUSTACH_OK;
     if (length + sizeof extension > sizeof path) return MUSTACH_ERROR_TOO_BIG;
     memcpy(path, name, length);
     path[length] = 0;
-    if (!realpath(path, resolved)) {
+    found = realpath(path, resolved) != NULL;
+    if (!found) {
         memcpy(&path[length], extension, sizeof extension);
-        if (!realpath(path, resolved)) return MUSTACH_ERROR_NOT_FOUND;
+        found = realpath(path, resolved) != NULL;
     }
-    pg_whitelist_check_local(name, resolved, privileged);
-    return mustach_read_file(path, sbuf) == MUSTACH_OK ? MUSTACH_OK : MUSTACH_ERROR_NOT_FOUND;
+    if (found) {
+        if (!pg_mustach_whitelisted(name, resolved, privileged)) {
+            if (!data_first && mustach_partial_from_data_jsonb(name, sbuf)) return MUSTACH_OK;
+            pg_whitelist_check_local(name, resolved, privileged); /* raises the denial */
+        }
+        if (mustach_read_file(resolved, sbuf) == MUSTACH_OK) return MUSTACH_OK;
+    }
+    if (!data_first && mustach_partial_from_data_jsonb(name, sbuf)) return MUSTACH_OK;
+    sbuf->value = "";
+    return MUSTACH_OK;
 }
-
-static int pg_mustach_flags = Mustach_With_AllExtensions;
 static bool pg_mustach_transaction = true;
 
 void _PG_init(void);
