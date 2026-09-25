@@ -225,6 +225,18 @@ static void pg_mustach_check(int rc, const char *err) {
     }
 }
 
+/* Cleanup for an ERROR raised while rendering (e.g. pg_whitelist denying a
+ * partial from pg_mustach_get_partial(), or any palloc/jsonb failure), which
+ * longjmps past the rc != MUSTACH_OK path: without it the FILE (and its fd)
+ * would leak for the rest of the session, and a half-written O_EXCL target
+ * would stay behind and block every retry with the same path. fclose() must
+ * come first, since for open_memstream() it's what finalizes *data. */
+static void pg_mustach_abort(FILE *file, char **data, const char *name) {
+    fclose(file);
+    if (*data) free(*data);
+    if (name) unlink(name);
+}
+
 EXTENSION(pg_mustach) {
     char *data = NULL;
     char *err = NULL;
@@ -261,7 +273,13 @@ EXTENSION(pg_mustach) {
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
-    rc = mustach_process_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), json, pg_mustach_flags, file, &err);
+    PG_TRY(); {
+        rc = mustach_process_jsonb(VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template), json, pg_mustach_flags, file, &err);
+    } PG_CATCH(); {
+        pg_mustach_abort(file, &data, name);
+        PG_RE_THROW();
+    } PG_END_TRY();
+    fclose(file);
     if (rc != MUSTACH_OK) {
         if (data) free(data);
         if (name) unlink(name);
@@ -340,7 +358,12 @@ EXTENSION(pg_mustach_json) {
         } break;
         default: ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("expect be 2 or 3 args")));
     }
-    rc = mustach_render_jsonb(templ, json, pg_mustach_flags, file);
+    PG_TRY(); {
+        rc = mustach_render_jsonb(templ, json, pg_mustach_flags, file);
+    } PG_CATCH(); {
+        pg_mustach_abort(file, &data, name);
+        PG_RE_THROW();
+    } PG_END_TRY();
     fclose(file);
     if (rc != MUSTACH_OK) {
         if (data) free(data);

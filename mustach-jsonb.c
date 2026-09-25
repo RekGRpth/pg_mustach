@@ -332,11 +332,8 @@ static const struct mustach_wrap_itf mustach_jsonb_wrap_itf = {
 
 int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int flags, FILE *file, char **err) {
     struct expl e;
-    int rc;
     e.root = root;
-    rc = mustach_wrap_file(template, length, &mustach_jsonb_wrap_itf, &e, flags, file);
-    fclose(file);
-    return rc;
+    return mustach_wrap_file(template, length, &mustach_jsonb_wrap_itf, &e, flags, file);
 }
 
 /* mustach_make_template() doesn't copy the template text: the built

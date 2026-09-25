@@ -7,3 +7,13 @@ ERROR:  mustach target file already exists
 ERROR:  MUSTACH_ERROR_UNEXPECTED_END
 6|debris file left behind|no
 7|retry with fixed template succeeds|t
+ERROR:  permission denied to access "/etc/hostname"
+DETAIL:  whitelist does not permit this file or URL for the current role.
+9|debris file left behind|no
+10|prepare template with denied partial|t
+ERROR:  permission denied to access "/etc/hostname"
+DETAIL:  whitelist does not permit this file or URL for the current role.
+12|debris file left behind|no
+13|repeated ERRORs mid-render leak no fds|t
+14|debris files left behind by repeated ERRORs|0
+15|retry with same path succeeds|t
