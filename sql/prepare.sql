@@ -51,5 +51,7 @@ SELECT 15, 'forget on the already-empty unnamed default slot returns false', mus
 \set ON_ERROR_STOP false
 SELECT 16, 'render with no tplname errors once the default slot is empty', mustach_json('{}');
 \set ON_ERROR_STOP true
+SELECT mustach_template('', 'empty');
+SELECT 17, 'an empty template renders empty, not whatever follows its buffer', '[' || mustach_json('{}', 'empty') || ']';
 ROLLBACK;
 \! rm -f /tmp/pg_mustach_test_prepare.txt /tmp/pg_mustach_test_prepare_denied.txt /tmp/pg_mustach_test_prepare_positional_footgun.txt

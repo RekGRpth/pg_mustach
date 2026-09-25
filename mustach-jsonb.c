@@ -436,11 +436,15 @@ int mustach_process_jsonb(const char *template, size_t length, Jsonb *root, int 
  * it via that freecb, so we never touch/free it ourselves afterward. */
 int mustach_prepare_jsonb(const char *template, size_t length, int flags, mustach_template_t **templ) {
     mustach_sbuf_t sbuf = MUSTACH_SBUF_INIT;
-    char *copy = malloc(length);
+    /* NUL-terminated: a zero sbuf.length means "unknown, use strlen()" to
+     * mustach (mustach_sbuf_length()), so an empty template would
+     * otherwise be read past its end. */
+    char *copy = malloc(length + 1);
     int buildflags;
     if (!copy)
         return MUSTACH_ERROR_SYSTEM;
     memcpy(copy, template, length);
+    copy[length] = '\0';
     sbuf.value = copy;
     sbuf.length = length;
     sbuf.freecb = free;

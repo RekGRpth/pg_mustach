@@ -21,3 +21,5 @@ ERROR:  unknown prepared mustach template "/tmp/pg_mustach_test_prepare_position
 14|forget on the unnamed default slot returns true once|t
 15|forget on the already-empty unnamed default slot returns false|f
 ERROR:  no prepared mustach template
+
+17|an empty template renders empty, not whatever follows its buffer|[]
