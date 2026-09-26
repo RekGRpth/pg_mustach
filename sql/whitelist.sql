@@ -170,9 +170,12 @@ BEGIN
     END LOOP;
 END $$;
 SELECT pg_temp.deny_many(100);
-SELECT substring(pg_read_file('/proc/self/status') from 'VmRSS:\s+(\d+) kB')::int AS pg_mustach_test_rss \gset
+SELECT pg_backend_pid() AS pid \gset
+\setenv PID :pid
+\set pg_mustach_test_rss_before `awk '/^VmRSS:/ {print $2}' /proc/$PID/status`
 SELECT pg_temp.deny_many(2000);
-SELECT substring(pg_read_file('/proc/self/status') from 'VmRSS:\s+(\d+) kB')::int - :pg_mustach_test_rss < 5000 AS denied_renders_do_not_leak;
+\set pg_mustach_test_rss_after `awk '/^VmRSS:/ {print $2}' /proc/$PID/status`
+SELECT :pg_mustach_test_rss_after - :pg_mustach_test_rss_before < 5000 AS denied_renders_do_not_leak;
 RESET pg_mustach.whitelist;
 
 DROP ROLE mustach_test_none;
