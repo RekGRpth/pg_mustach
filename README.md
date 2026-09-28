@@ -152,6 +152,9 @@ gated through the [`pg_whitelist`](pg_whitelist/) submodule via the `pg_mustach.
 ALTER ROLE some_role SET pg_mustach.whitelist = 'file:///etc/ssl/';
 ```
 
+Names starting with `http://` or `https://` are never read as files, only looked up in the
+json data.
+
 `mustach(json, template, file)` (the 3-argument, file-writing form) is unconditionally
 restricted to superusers, independent of the whitelist.
 
