@@ -47,6 +47,17 @@ SELECT mustach('{}', E'[{{>http://../../../../../../../../../../../../etc/hostna
 SELECT mustach('{}', E'[{{>https://../../../../../../../../../../../../etc/hostname}}]');
 SELECT mustach('{"http://x": "from data"}', E'[{{>http://x}}]');
 RESET ROLE;
+
+--
+-- pg_whitelist also takes "http:" without "//", and scheme-relative "//"
+-- names, for URLs, waving them through its local-file check unchecked --
+-- but here they're ordinary local paths ("//etc/hostname" is /etc/hostname),
+-- so they must be checked like any other.
+--
+SET ROLE mustach_test_none;
+SELECT mustach('{}', E'[{{>//etc/hostname}}]');
+SELECT mustach('{}', E'[{{>http:/../../../../../../../../../../../../etc/hostname}}]');
+RESET ROLE;
 \! rmdir "$PG_MUSTACH_TEST_PGDATA/http:" "$PG_MUSTACH_TEST_PGDATA/https:"
 SET ROLE mustach_test_none;
 
@@ -116,6 +127,7 @@ ALTER ROLE mustach_test_none RESET pg_mustach.whitelist;
 --
 SET ROLE mustach_test_full;
 SELECT octet_length(mustach('{}', E'{{>/etc/hostname}}')) > 0 AS role_only_nonempty;
+SELECT mustach('{}', E'{{>//etc/hostname}}') = mustach('{}', E'{{>/etc/hostname}}') AS role_only_scheme_relative_is_local;
 RESET ROLE;
 
 --

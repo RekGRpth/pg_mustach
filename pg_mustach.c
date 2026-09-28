@@ -44,34 +44,14 @@ static bool pg_mustach_privileged(void) {
 
 static int pg_mustach_flags = Mustach_With_AllExtensions;
 
-/* pg_whitelist_check_local(), but returning the permission-denied ERROR it
- * would raise instead of raising it, or NULL if access is allowed. Catching
- * that without a subtransaction is fine: pg_whitelist_check_local() holds no
- * resources or locks, only palloc's, and anything but the denial itself is
- * re-thrown untouched. */
-static ErrorData *pg_mustach_whitelist_denial(const char *name, const char *resolved, bool privileged) {
-    MemoryContext context = CurrentMemoryContext;
-    ErrorData *volatile denial = NULL;
-    PG_TRY(); {
-        pg_whitelist_check_local(name, resolved, privileged);
-    } PG_CATCH(); {
-        ErrorData *edata;
-        MemoryContextSwitchTo(context);
-        edata = CopyErrorData();
-        if (edata->sqlerrcode != ERRCODE_INSUFFICIENT_PRIVILEGE) PG_RE_THROW();
-        FlushErrorState();
-        denial = edata;
-    } PG_END_TRY();
-    return denial;
-}
-
 /* An ERROR raised from inside a mustach callback longjmps past mustach's
  * own cleanup, leaking whatever it malloc'd for the render -- for mustach(),
  * the whole parsed template, every time. So the partial hook doesn't raise
- * its whitelist denial there: it parks it here and fails the render with an
+ * its whitelist denial there: it asks pg_whitelist_allows_local(), which
+ * only reports it, parks the denied name here and fails the render with an
  * error code instead, letting mustach unwind and free normally, and
  * pg_mustach_close() raises it once mustach has returned. */
-static ErrorData *pg_mustach_error = NULL;
+static char *pg_mustach_denied = NULL;
 
 /* {{>name}} partials: mustach-wrap.c by itself resolves them from the json
  * data and from reading "name" (or "name.mustache") as a local file path --
@@ -89,9 +69,12 @@ static ErrorData *pg_mustach_error = NULL;
  * the partial either -- relative names resolve against the data directory,
  * so e.g. {{>base}} would otherwise hit PGDATA/base instead of "base" in
  * the data. Nothing found anywhere renders empty, as mustach-wrap.c does.
- * http(s):// names are never read as files: pg_whitelist_check_local()
- * waves them through unchecked as URLs, yet here they'd be local paths
- * (with an "http:" directory in PGDATA, {{>http://../../etc/passwd}}). */
+ * The whitelist is asked about the resolved path, never about name:
+ * pg_whitelist waves anything it takes for a URL ("http:", "https:" or
+ * "//" prefixed) through unchecked, yet here every name is a local path
+ * ({{>//etc/passwd}} is /etc/passwd), while realpath()'s result is always
+ * absolute and canonical, so never taken for one. http(s):// names are not
+ * read as files at all, only resolved from the json data. */
 static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
     static char extension[] = ".mustache";
     bool data_first = (pg_mustach_flags & Mustach_With_PartialDataFirst) != 0;
@@ -111,13 +94,9 @@ static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
         found = realpath(path, resolved) != NULL;
     }
     if (found) {
-        ErrorData *denial = pg_mustach_whitelist_denial(name, resolved, privileged);
-        if (denial) {
-            if (!data_first && mustach_partial_from_data_jsonb(name, sbuf)) {
-                FreeErrorData(denial);
-                return MUSTACH_OK;
-            }
-            pg_mustach_error = denial; /* raised by pg_mustach_close() */
+        if (!pg_whitelist_allows_local(resolved, resolved, privileged)) {
+            if (!data_first && mustach_partial_from_data_jsonb(name, sbuf)) return MUSTACH_OK;
+            pg_mustach_denied = pstrdup(name); /* raised by pg_mustach_close() */
             return MUSTACH_ERROR_SYSTEM;
         }
         if (mustach_read_file(resolved, sbuf) == MUSTACH_OK) return MUSTACH_OK;
@@ -304,7 +283,7 @@ static void pg_mustach_check(int rc, const char *err) {
  * would stay behind and block every retry with the same path. fclose() must
  * come first, since for open_memstream() it's what finalizes *data. */
 static void pg_mustach_abort(FILE *file, char **data, const char *name) {
-    pg_mustach_error = NULL;
+    pg_mustach_denied = NULL;
     fclose(file);
     if (*data) free(*data);
     if (name) unlink(name);
@@ -315,16 +294,17 @@ static void pg_mustach_abort(FILE *file, char **data, const char *name) {
  * reaches the target file, and for open_memstream() where *data gets
  * finalized, so its failure (e.g. ENOSPC) must not be reported as success
  * over a truncated file or a NULL *data. On failure *data is freed and the
- * target file removed before raising the ERROR -- the one a callback parked
- * in pg_mustach_error, if any, rather than the error code it failed with. */
+ * target file removed before raising the ERROR -- the whitelist denial of
+ * the name a callback parked in pg_mustach_denied, if any, rather than the
+ * error code it failed with. */
 static void pg_mustach_close(FILE *file, int rc, const char *err, char **data, const char *name) {
     int close_errno = fclose(file) ? errno : 0;
-    ErrorData *error = pg_mustach_error;
-    pg_mustach_error = NULL;
-    if (rc == MUSTACH_OK && !close_errno && !error) return;
+    char *denied = pg_mustach_denied;
+    pg_mustach_denied = NULL;
+    if (rc == MUSTACH_OK && !close_errno && !denied) return;
     if (*data) free(*data);
     if (name) unlink(name);
-    if (error) ReThrowError(error);
+    if (denied) pg_whitelist_deny(denied);
     pg_mustach_check(rc, err);
     errno = close_errno;
     if (name) ereport(ERROR, (errcode_for_file_access(), errmsg("could not write file \"%s\": %m", name)));
