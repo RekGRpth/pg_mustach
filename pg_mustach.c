@@ -73,8 +73,10 @@ static char *pg_mustach_denied = NULL;
  * pg_whitelist waves anything it takes for a URL ("http:", "https:" or
  * "//" prefixed) through unchecked, yet here every name is a local path
  * ({{>//etc/passwd}} is /etc/passwd), while realpath()'s result is always
- * absolute and canonical, so never taken for one. http(s):// names are not
- * read as files at all, only resolved from the json data. */
+ * absolute, so never taken for one -- once its initial "//" is cut down to
+ * "/": POSIX leaves that one's meaning implementation-defined, and unlike
+ * glibc, musl's realpath() keeps it ("//etc/passwd" stays as is). http(s)://
+ * names are not read as files at all, only resolved from the json data. */
 static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
     static char extension[] = ".mustache";
     bool data_first = (pg_mustach_flags & Mustach_With_PartialDataFirst) != 0;
@@ -94,6 +96,7 @@ static int pg_mustach_get_partial(const char *name, mustach_sbuf_t *sbuf) {
         found = realpath(path, resolved) != NULL;
     }
     if (found) {
+        while (resolved[0] == '/' && resolved[1] == '/') memmove(resolved, &resolved[1], strlen(resolved));
         if (!pg_whitelist_allows_local(resolved, resolved, privileged)) {
             if (!data_first && mustach_partial_from_data_jsonb(name, sbuf)) return MUSTACH_OK;
             pg_mustach_denied = pstrdup(name); /* raised by pg_mustach_close() */
